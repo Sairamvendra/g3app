@@ -48,17 +48,6 @@ export const REPLICATE_VIDEO_MODELS = [
     supportsAudio: true,
   },
   {
-    id: 'kwaivgi/kling-v2.1',
-    name: 'Kling v2.1',
-    description: 'Image-to-video with standard (720p) or pro (1080p) quality modes',
-    type: 'image-to-video',
-    maxDuration: 10,
-    durations: [5, 10],
-    requiresStartImage: true,
-    modes: ['standard', 'pro'],
-    // Note: Kling determines aspect ratio from input image and resolution from mode
-  },
-  {
     id: 'wan-video/wan-2.2-i2v-fast',
     name: 'Wan 2.2 I2V Fast',
     description: 'Fast image-to-video with flexible frame and FPS control',
@@ -177,27 +166,6 @@ export const generateVideoWithReplicate = async (
       }
       break;
 
-    case 'kwaivgi/kling-v2.1':
-      // Kling v2.1 REQUIRES a start image
-      if (!startImage) {
-        throw new Error('Kling v2.1 requires a start image for image-to-video generation');
-      }
-      input.start_image = prepareImageForReplicate(startImage);
-
-      // End image is optional but requires pro mode
-      if (endImage) {
-        input.end_image = prepareImageForReplicate(endImage);
-        input.mode = 'pro'; // Force pro mode when end image is provided
-      } else {
-        input.mode = settings.mode || 'standard'; // standard or pro
-      }
-
-      input.duration = settings.duration || 5;
-      if (settings.negativePrompt) {
-        input.negative_prompt = settings.negativePrompt;
-      }
-      break;
-
     case 'wan-video/wan-2.2-i2v-fast':
       // Wan 2.2 REQUIRES a start image
       if (!startImage) {
@@ -288,6 +256,7 @@ export const generateVideoWithReplicate = async (
         duration: input.duration || settings.duration,
         negative_prompt: input.negative_prompt || settings.negativePrompt,
         aspect_ratio: input.aspect_ratio || settings.aspectRatio,
+        mode: input.mode || settings.mode,
         start_image: startImage,
         end_image: endImage,
       }),

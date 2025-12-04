@@ -2,11 +2,46 @@ import express from 'express';
 import cors from 'cors';
 import Replicate from 'replicate';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3002;
+
+// ===== LOGGING SYSTEM =====
+const logsDir = path.join(process.cwd(), 'logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
+
+const logToFile = (type, data) => {
+  const timestamp = new Date().toISOString();
+  const logFile = path.join(logsDir, `session-${new Date().toISOString().split('T')[0]}.log`);
+  const logEntry = `[${timestamp}] [${type}] ${JSON.stringify(data, null, 2)}\n${'='.repeat(80)}\n`;
+  fs.appendFileSync(logFile, logEntry);
+};
+
+const logger = {
+  request: (endpoint, data) => {
+    console.log(`📥 [REQUEST] ${endpoint}:`, JSON.stringify(data, null, 2));
+    logToFile('REQUEST', { endpoint, data });
+  },
+  response: (endpoint, data) => {
+    console.log(`📤 [RESPONSE] ${endpoint}:`, JSON.stringify(data, null, 2));
+    logToFile('RESPONSE', { endpoint, data });
+  },
+  error: (endpoint, error) => {
+    console.error(`❌ [ERROR] ${endpoint}:`, error);
+    logToFile('ERROR', { endpoint, error: error.message, stack: error.stack });
+  },
+  info: (message, data = {}) => {
+    console.log(`ℹ️  [INFO] ${message}`, data);
+    logToFile('INFO', { message, ...data });
+  }
+};
+// ===== END LOGGING SYSTEM =====
 
 // Debug: Check if API key is loaded
 console.log('🔑 API Key loaded:', process.env.REPLICATE_API_KEY ? `${process.env.REPLICATE_API_KEY.substring(0, 8)}...` : 'NOT FOUND');
@@ -209,8 +244,20 @@ app.post('/api/generate/video', async (req, res) => {
       negative_prompt,
       aspect_ratio,
       start_image,
-      end_image
+      end_image,
+      mode
     } = req.body;
+
+    logger.request('/api/generate/video', {
+      model,
+      prompt: prompt ? `${prompt.substring(0, 100)}...` : null,
+      resolution,
+      duration,
+      aspect_ratio,
+      mode,
+      hasStartImage: !!start_image,
+      hasEndImage: !!end_image
+    });
 
     const input = {
       prompt: prompt || 'A cinematic video scene',
@@ -222,55 +269,110 @@ app.post('/api/generate/video', async (req, res) => {
       case 'google/veo-3.1-fast':
         // Veo models use: resolution, duration, negative_prompt, aspect_ratio, image, last_frame
         if (resolution) input.resolution = resolution;
-        if (duration) input.duration = duration;
+
+        // Veo only supports durations: 4, 6, or 8 seconds
+        const validVeoDurations = [4, 6, 8];
+        let videoDuration = duration ? parseInt(duration) : 4;
+        if (!validVeoDurations.includes(videoDuration)) {
+          // Find closest valid duration
+          videoDuration = validVeoDurations.reduce((prev, curr) =>
+            Math.abs(curr - videoDuration) < Math.abs(prev - videoDuration) ? curr : prev
+          );
+          console.warn(`[Veo] Adjusting duration from ${duration} to nearest valid value: ${videoDuration} seconds`);
+        }
+        input.duration = videoDuration;
+
         if (negative_prompt) input.negative_prompt = negative_prompt;
-        if (aspect_ratio) input.aspect_ratio = aspect_ratio;
+        // Veo only supports 16:9 or 9:16, default to 16:9 if invalid
+        if (aspect_ratio && (aspect_ratio === '16:9' || aspect_ratio === '9:16')) {
+          input.aspect_ratio = aspect_ratio;
+        } else {
+          input.aspect_ratio = '16:9'; // Default fallback
+        }
         if (start_image) input.image = start_image;
         if (end_image) input.last_frame = end_image;
         break;
 
-      case 'kwaivgi/kling-v2.1':
-        // Kling uses: mode (instead of resolution), duration, negative_prompt, start_image (required!), end_image
-        if (!start_image) {
-          throw new Error('Kling v2.1 requires a start image');
-        }
-        input.start_image = start_image;
-        if (end_image) input.end_image = end_image;
-
-        // Map resolution to mode
-        input.mode = resolution === 'pro' || resolution === '1080p' ? 'pro' : 'standard';
-        if (duration) input.duration = duration;
-        if (negative_prompt) input.negative_prompt = negative_prompt;
-        break;
-
       case 'wan-video/wan-2.2-i2v-fast':
-        // Wan uses: resolution, image (required!), last_image, num_frames (instead of duration)
+        // Wan 2.2 I2V - Image-to-Video (REQUIRES image)
+        // Parameters: prompt, image (required), last_image, num_frames, resolution, frames_per_second, go_fast, sample_shift, seed
+
         if (!start_image) {
           throw new Error('Wan 2.2 I2V requires a start image');
         }
         input.image = start_image;
-        if (end_image) input.last_image = end_image;
-        if (resolution) input.resolution = resolution;
 
-        // Convert duration to num_frames (approximate: 16fps default)
-        if (duration) {
-          input.num_frames = Math.min(duration * 16, 121);
+        // Last image (optional)
+        if (end_image) {
+          input.last_image = end_image;
         }
+
+        // Resolution: "480p" or "720p"
+        input.resolution = (resolution === '720p' || resolution === '1080p') ? '720p' : '480p';
+
+        // num_frames: 81-121 (81 recommended for best results)
+        // Convert duration to frames if provided, otherwise use default
+        if (duration) {
+          const fps = 16; // Default FPS
+          input.num_frames = Math.max(81, Math.min(parseInt(duration) * fps, 121));
+        } else {
+          input.num_frames = 81; // Default recommended value
+        }
+
+        // Frames per second: 5-30 (default 16)
+        input.frames_per_second = 16;
+
+        // Go fast mode (default true)
+        input.go_fast = true;
+
+        // Sample shift (default 12)
+        input.sample_shift = 12;
+
         break;
 
       case 'bytedance/seedance-1-pro':
       case 'bytedance/seedance-1-lite':
-        // SeeDance models support both text-to-video and image-to-video
-        if (start_image) input.image = start_image;
-        if (end_image) input.last_frame_image = end_image;
+        // SeeDance models - Text-to-Video and Image-to-Video
+        // Parameters: prompt (required), image, last_frame_image, duration, resolution, aspect_ratio, fps, camera_fixed, seed
 
-        // Core parameters
-        if (duration) input.duration = duration;
-        if (!start_image && aspect_ratio) input.aspect_ratio = aspect_ratio; // Ignored when image is provided
-        if (resolution) input.resolution = resolution;
-        input.fps = 24; // Fixed at 24 fps
+        // Image (optional - supports both T2V and I2V)
+        if (start_image) {
+          input.image = start_image;
+        }
 
-        if (negative_prompt) input.negative_prompt = negative_prompt;
+        // Last frame image (optional, only works if start image is provided)
+        if (end_image && start_image) {
+          input.last_frame_image = end_image;
+        }
+
+        // Duration: 2-12 seconds (default 5)
+        const seedanceDuration = duration ? parseInt(duration) : 5;
+        input.duration = Math.max(2, Math.min(seedanceDuration, 12));
+
+        // Resolution: "480p", "720p", or "1080p"
+        // SeeDance 1 Lite only supports up to 720p
+        if (model === 'bytedance/seedance-1-lite') {
+          input.resolution = (resolution === '720p' || resolution === '1080p') ? '720p' : '480p';
+        } else {
+          // SeeDance 1 Pro supports up to 1080p
+          if (resolution === '1080p') input.resolution = '1080p';
+          else if (resolution === '720p') input.resolution = '720p';
+          else input.resolution = '480p';
+        }
+
+        // Aspect ratio (ignored if image is provided)
+        if (!start_image && aspect_ratio) {
+          // Valid: "16:9", "4:3", "1:1", "3:4", "9:16", "21:9", "9:21"
+          const validRatios = ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', '9:21'];
+          input.aspect_ratio = validRatios.includes(aspect_ratio) ? aspect_ratio : '16:9';
+        }
+
+        // FPS: Fixed at 24
+        input.fps = 24;
+
+        // Camera fixed (default false)
+        input.camera_fixed = false;
+
         break;
 
       default:
@@ -278,7 +380,7 @@ app.post('/api/generate/video', async (req, res) => {
         if (start_image) input.image = start_image;
         if (end_image) input.last_frame = end_image;
         if (resolution) input.resolution = resolution;
-        if (duration) input.duration = duration;
+        if (duration) input.duration = parseInt(duration);
         break;
     }
 
@@ -350,10 +452,11 @@ app.post('/api/generate/video', async (req, res) => {
       throw new Error(`Invalid video URL received from Replicate. Output type: ${typeof output}. Please check server logs for details.`);
     }
 
-    console.log('Video generated successfully:', videoUrl);
+    logger.info('Video generated successfully', { model, videoUrl: videoUrl.substring(0, 100) + '...' });
+    logger.response('/api/generate/video', { success: true, model });
     res.json({ success: true, result: videoUrl });
   } catch (error) {
-    console.error('Video generation error:', error);
+    logger.error('/api/generate/video', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to generate video'

@@ -225,6 +225,24 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
 
   const handleDeleteCharacter = (id: string) => { setCharacters(prev => prev.filter(c => c.id !== id)); };
 
+  const handleDownloadVideo = async (videoUrl: string, filename: string) => {
+    try {
+      const response = await fetch(videoUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Failed to download video:', error);
+      setError('Failed to download video. Please try again.');
+    }
+  };
+
   const prepareGenerationPayload = (rawPrompt: string) => {
       let finalPrompt = rawPrompt;
       const injectedReferenceImages = [...settings.referenceImages];
@@ -622,7 +640,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                 <div className="flex items-center space-x-2">
                     <PhotoIcon className="w-5 h-5 text-green-400" />
                     <h2 className="text-lg font-bold text-white">Visual Studio</h2>
-                    <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20 ml-2">Nano Banana Pro</span>
+                    <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20 ml-2">PRO</span>
                 </div>
             </div>
           </div>
@@ -737,14 +755,14 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                         </button>
                     )}
                     {generatedVideoUrl && (
-                        <a href={generatedVideoUrl} download={`gemini-video-${Date.now()}.mp4`} className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
+                        <button onClick={() => handleDownloadVideo(generatedVideoUrl, `gemini-video-${Date.now()}.mp4`)} className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
                             <ArrowDownTrayIcon className="w-4 h-4" /> Download Veo Video
-                        </a>
+                        </button>
                     )}
                     {generatedReplicateVideoUrl && (
-                        <a href={generatedReplicateVideoUrl} download={`replicate-video-${Date.now()}.mp4`} className="flex-1 md:flex-none bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-purple-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
-                            <ArrowDownTrayIcon className="w-4 h-4" /> Download Replicate Video
-                        </a>
+                        <button onClick={() => handleDownloadVideo(generatedReplicateVideoUrl, `replicate-video-${Date.now()}.mp4`)} className="flex-1 md:flex-none bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-purple-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
+                            <ArrowDownTrayIcon className="w-4 h-4" /> Download Video
+                        </button>
                     )}
                     {!generatedVideoUrl && !generatedReplicateVideoUrl && currentImage && (
                         <a href={currentImage.url} download={`gemini-studio-render-${Date.now()}.png`} className="flex-1 md:flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
