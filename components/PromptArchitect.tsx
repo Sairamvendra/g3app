@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Message } from '../types';
-import { refinePromptWithGemini } from '../services/geminiService';
+import { refinePromptWithReplicate } from '../services/replicateService';
 import { PaperAirplaneIcon, DocumentTextIcon, PhotoIcon, SparklesIcon, ChevronRightIcon, CheckCircleIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/solid';
 
 interface PromptArchitectProps {
@@ -15,7 +15,7 @@ const STORAGE_KEY = 'gemini_architect_system_instruction';
 
 const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, isCollapsed, toggleCollapse }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: "Hello! I'm your Gemini Prompt Architect. Describe your idea or upload a storyboard, and I'll help you structure the perfect prompt." }
+    { role: 'model', text: "Hello! I'm your AI Prompt Architect. Describe your idea or upload a storyboard, and I'll help you structure the perfect prompt." }
   ]);
   const [input, setInput] = useState('');
   
@@ -66,14 +66,14 @@ const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, is
     setIsThinking(true);
 
     try {
-      const responseText = await refinePromptWithGemini(
+      const responseText = await refinePromptWithReplicate(
         newHistory,
         systemInstruction,
         storyboard
       );
 
       setMessages(prev => [...prev, { role: 'model', text: responseText }]);
-      setStoryboard(null); 
+      setStoryboard(null);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'model', text: "I encountered an error while thinking. Please try again." }]);
     } finally {
@@ -275,7 +275,7 @@ const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, is
           <div className="flex justify-start animate-pulse">
             <div className="bg-zinc-800/50 text-indigo-400 px-4 py-2 rounded-full text-xs flex items-center gap-2 border border-zinc-700/50">
               <SparklesIcon className="w-3 h-3 animate-spin" />
-              Gemini 3 Pro is Thinking...
+              AI is Thinking...
             </div>
           </div>
         )}

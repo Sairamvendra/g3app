@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { GoogleGenerativeAI, GenerateContentResponse } from "@google/generative-ai";
 import { ImageSettings, RelightSettings, VideoSettings } from "../types";
 
 // Dynamic API Key Retrieval
@@ -18,7 +18,7 @@ export const hasValidApiKey = (): boolean => {
 
 // Helper to get a fresh client instance (ensures key updates are respected)
 const getGeminiClient = () => {
-  return new GoogleGenAI({ apiKey: getApiKey() });
+  return new GoogleGenerativeAI({ apiKey: getApiKey() });
 };
 
 // Supported directly by the API config
@@ -501,7 +501,7 @@ export const generateVideoWithGemini = async (
     }
     
     // Create new instance to pick up the potentially selected key or user override
-    const veoAi = new GoogleGenAI({ apiKey: getApiKey() });
+    const veoAi = new GoogleGenerativeAI({ apiKey: getApiKey() });
 
     // Map aspect ratio to closest supported (16:9 or 9:16)
     // Most cinematic/standard ratios map to 16:9. Vertical/portrait map to 9:16.

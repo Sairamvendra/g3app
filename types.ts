@@ -197,6 +197,16 @@ export interface ReplicateVideoSettings {
   videoLength?: string;
   resolution?: string;
   seed?: number;
+  // Additional options for various models
+  generateAudio?: boolean;
+  negativePrompt?: string;
+  mode?: string;
+  fps?: number;
+  goFast?: boolean;
+  sampleShift?: number;
+  interpolateOutput?: boolean;
+  cameraFixed?: boolean;
+  referenceImages?: string[];
 }
 
 export const REPLICATE_VIDEO_MODELS = [

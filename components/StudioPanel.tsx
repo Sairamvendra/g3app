@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { AspectRatio, ImageSize, ImageSettings, GeneratedImage, DEFAULT_SETTINGS, LIGHTING_OPTIONS, ANGLE_OPTIONS, MOOD_OPTIONS, FRAMING_OPTIONS, CAMERA_ANGLE_OPTIONS, DI_WORKFLOW_OPTIONS, StoryFlowState, Character, SidebarMode, RelightLight, CharacterReference, VideoSettings, VIDEO_MODELS, VIDEO_DURATIONS, VIDEO_FRAMERATES, ReplicateVideoSettings, REPLICATE_VIDEO_MODELS } from '../types';
-import { generateImageWithGemini, analyzeStoryboardFlow, generatePersonaPrompt, generateVideoWithGemini, improveVideoPromptWithGemini, hasValidApiKey } from '../services/geminiService';
-import { generateVideoWithReplicate, hasValidReplicateApiKey, REPLICATE_VIDEO_MODELS as REPLICATE_MODELS } from '../services/replicateService';
+import { generateImageWithReplicate, analyzeStoryboardFlowWithReplicate, generatePersonaPromptWithReplicate, improveVideoPromptWithReplicate, generateVideoWithReplicate, hasValidReplicateApiKey, REPLICATE_VIDEO_MODELS as REPLICATE_MODELS } from '../services/replicateService';
 import { ArrowDownTrayIcon, BoltIcon, PhotoIcon, CheckCircleIcon, XMarkIcon, PlusIcon, VideoCameraIcon, EyeIcon, LinkIcon, PaintBrushIcon, SparklesIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, UserGroupIcon, TrashIcon, CloudArrowDownIcon, LightBulbIcon, FilmIcon, ChevronUpIcon, ChevronDownIcon, PencilSquareIcon, PlayIcon, KeyIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { UserIcon } from '@heroicons/react/24/solid';
 import CameraControls from './OrbitCamera';
@@ -42,11 +41,6 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [isImprovingPrompt, setIsImprovingPrompt] = useState(false);
 
-  // API Key Modal State
-  const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
-  const [customApiKey, setCustomApiKey] = useState('');
-  const [keyError, setKeyError] = useState<string | null>(null);
-
   // Replicate Video State
   const [replicateVideoSettings, setReplicateVideoSettings] = useState<ReplicateVideoSettings>({
     model: REPLICATE_MODELS[0].id,
@@ -62,9 +56,6 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
   const [isReplicateExpanded, setIsReplicateExpanded] = useState(false);
   const [isGeneratingReplicateVideo, setIsGeneratingReplicateVideo] = useState(false);
   const [generatedReplicateVideoUrl, setGeneratedReplicateVideoUrl] = useState<string | null>(null);
-  const [replicateApiKeyModalOpen, setReplicateApiKeyModalOpen] = useState(false);
-  const [replicateApiKey, setReplicateApiKey] = useState('');
-  const [replicateKeyError, setReplicateKeyError] = useState<string | null>(null);
 
   const [storyFlow, setStoryFlow] = useState<StoryFlowState>(() => {
     let savedPrompt = '';
@@ -91,52 +82,27 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
     localStorage.setItem('gemini_studio_characters', JSON.stringify(characters));
   }, [characters]);
 
-  // Load existing API key from storage on mount
+  // Load API key from server on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-        const storedKey = localStorage.getItem('gemini_api_key');
-        if (storedKey) setCustomApiKey(storedKey);
-
+    const loadApiKey = async () => {
+      if (typeof window !== 'undefined') {
         const storedReplicateKey = localStorage.getItem('replicate_api_key');
-        if (storedReplicateKey) setReplicateApiKey(storedReplicateKey);
-    }
+        if (!storedReplicateKey) {
+          // Fetch API key from server
+          try {
+            const response = await fetch('http://localhost:3002/api/key/replicate');
+            const data = await response.json();
+            if (data.success && data.key) {
+              localStorage.setItem('replicate_api_key', data.key);
+            }
+          } catch (error) {
+            console.error('Failed to fetch API key from server:', error);
+          }
+        }
+      }
+    };
+    loadApiKey();
   }, []);
-
-  const handleSaveApiKey = () => {
-      setKeyError(null);
-      const trimmedKey = customApiKey.trim();
-
-      // Basic validation for common mix-ups
-      if (trimmedKey.startsWith('r8_')) {
-          setKeyError("This looks like a Replicate API key. Veo requires a Google Gemini API key (usually starts with AIza).");
-          return;
-      }
-
-      if (trimmedKey) {
-          localStorage.setItem('gemini_api_key', trimmedKey);
-      } else {
-          localStorage.removeItem('gemini_api_key');
-      }
-      setApiKeyModalOpen(false);
-  };
-
-  const handleSaveReplicateApiKey = () => {
-      setReplicateKeyError(null);
-      const trimmedKey = replicateApiKey.trim();
-
-      // Basic validation for Replicate API key
-      if (trimmedKey && !trimmedKey.startsWith('r8_')) {
-          setReplicateKeyError("Replicate API keys typically start with 'r8_'. Please verify your key.");
-          return;
-      }
-
-      if (trimmedKey) {
-          localStorage.setItem('replicate_api_key', trimmedKey);
-      } else {
-          localStorage.removeItem('replicate_api_key');
-      }
-      setReplicateApiKeyModalOpen(false);
-  };
 
   const isFramingAllSelected = FRAMING_OPTIONS.every(opt => settings.cameraAngles.includes(opt));
   const isAngleAllSelected = CAMERA_ANGLE_OPTIONS.every(opt => settings.cameraAngles.includes(opt));
@@ -219,7 +185,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
     setStoryFlow(prev => ({ ...prev, isAnalyzing: true, detectedPrompts: [] }));
     try {
         const systemInstruction = localStorage.getItem('gemini_architect_system_instruction') || '';
-        const prompts = await analyzeStoryboardFlow(storyFlow.storyboardImage, storyFlow.storyPrompt, systemInstruction);
+        const prompts = await analyzeStoryboardFlowWithReplicate(storyFlow.storyboardImage, storyFlow.storyPrompt, systemInstruction);
         setStoryFlow(prev => ({ ...prev, detectedPrompts: prompts }));
     } catch (e) {
         setError("Failed to analyze storyboard.");
@@ -240,7 +206,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
       if (!newCharacterImage || !newCharacterName) { setError("Please provide an image and name first."); return; }
       setIsGeneratingPersona(true); setError(null);
       try {
-          const persona = await generatePersonaPrompt(newCharacterImage, newCharacterName);
+          const persona = await generatePersonaPromptWithReplicate(newCharacterImage, newCharacterName);
           setNewCharacterPersona(persona);
       } catch (e) { setError("Failed to generate persona prompt."); } finally { setIsGeneratingPersona(false); }
   };
@@ -277,8 +243,8 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
   };
 
   const handleGenerate = async () => {
-    if (!hasValidApiKey()) {
-        setApiKeyModalOpen(true);
+    if (!hasValidReplicateApiKey()) {
+        setError("Replicate API key is required. Please configure it in your environment.");
         return;
     }
     setError(null);
@@ -298,7 +264,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
             referenceImages: injectedReferenceImages,
             characterReferences: characterRefs
         };
-        const url = await generateImageWithGemini(finalPrompt, tempSettings, currentAngle);
+        const url = await generateImageWithReplicate(finalPrompt, tempSettings, currentAngle);
         return { url, prompt: panelPrompt, settings: tempSettings, angleUsed: currentAngle } as GeneratedImage;
     };
 
@@ -337,12 +303,11 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
             setVideoFrames(prev => ({ start: prev.end || null, end: results[0].url }));
         }
 
-    } catch (err: any) { 
+    } catch (err: any) {
         if (err.message.includes('API key') || err.message.includes('400') || err.message.includes('403')) {
-            setApiKeyModalOpen(true);
-            setError("Authentication failed. Please check your API key.");
+            setError("Authentication failed. Please check your Replicate API key.");
         } else {
-            setError(err.message || "Failed to generate images. Please try again."); 
+            setError(err.message || "Failed to generate images. Please try again.");
         }
     } finally { 
         setIsGenerating(false); 
@@ -350,8 +315,8 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
   };
 
   const handleImprovePrompt = async () => {
-      if (!hasValidApiKey()) {
-          setApiKeyModalOpen(true);
+      if (!hasValidReplicateApiKey()) {
+          setError("Replicate API key is required. Please configure it in your environment.");
           return;
       }
       if (!videoSettings.motionPrompt && !videoFrames.start && !videoFrames.end && !prompt) {
@@ -362,56 +327,20 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
       setError(null);
       try {
           const promptToImprove = videoSettings.motionPrompt || prompt || "";
-          const improved = await improveVideoPromptWithGemini(
+          const improved = await improveVideoPromptWithReplicate(
               promptToImprove,
               videoFrames.start,
               videoFrames.end
           );
           setVideoSettings(prev => ({ ...prev, motionPrompt: improved }));
       } catch (e: any) {
-          if (e.message?.includes('API key') || e.message?.includes('400')) setApiKeyModalOpen(true);
-          setError("Failed to improve prompt.");
+          setError(e.message || "Failed to improve prompt. Please check your Replicate API key.");
       } finally {
           setIsImprovingPrompt(false);
       }
   };
 
-  const handleGenerateVideo = async () => {
-      if (!hasValidApiKey()) {
-          setApiKeyModalOpen(true);
-          return;
-      }
-      setError(null);
-      setIsGeneratingVideo(true);
-      setGeneratedVideoUrl(null);
-      try {
-          // Prepare payload
-          const { finalPrompt } = prepareGenerationPayload(prompt); 
-          // Use current prompt or motion prompt
-          const videoPrompt = videoSettings.motionPrompt || finalPrompt; 
-          
-          if (!videoPrompt) throw new Error("A prompt is required for video generation.");
-          if (!videoFrames.start && !videoFrames.end && !videoPrompt) throw new Error("Start/End frame or text prompt required.");
-
-          const url = await generateVideoWithGemini(
-              videoPrompt,
-              videoFrames.start,
-              videoFrames.end,
-              videoSettings,
-              settings.aspectRatio
-          );
-          setGeneratedVideoUrl(url);
-      } catch (err: any) {
-          if (err.message.includes('API key') || err.message.includes('400') || err.message.includes('403')) {
-             setApiKeyModalOpen(true);
-             setError("API Key Error: Please provide a valid Google GenAI API Key.");
-          } else {
-             setError(err.message);
-          }
-      } finally {
-          setIsGeneratingVideo(false);
-      }
-  };
+  // Gemini Veo video generation removed - using Replicate for all video generation
 
   const handleVideoFrameUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'start' | 'end') => {
       if (e.target.files && e.target.files[0]) {
@@ -425,7 +354,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
 
   const handleGenerateReplicateVideo = async () => {
       if (!hasValidReplicateApiKey()) {
-          setReplicateApiKeyModalOpen(true);
+          setError("Replicate API key is required. Please check your server configuration.");
           return;
       }
       setError(null);
@@ -446,8 +375,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
           setGeneratedReplicateVideoUrl(url);
       } catch (err: any) {
           if (err.message.includes('API key') || err.message.includes('Unauthorized')) {
-              setReplicateApiKeyModalOpen(true);
-              setError("Replicate API Key Error: Please provide a valid Replicate API Key.");
+              setError("Replicate API Key Error: Please check your server configuration.");
           } else {
               setError(err.message);
           }
@@ -492,6 +420,19 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
   };
 
   const handleRemoveReferenceImage = (index: number) => { setSettings(prev => ({ ...prev, referenceImages: prev.referenceImages.filter((_, i) => i !== index) })); };
+
+  const handleUseLastRender = () => {
+    if (generatedImages.length === 0) {
+      setError("No generated images available. Generate an image first.");
+      return;
+    }
+    if (settings.referenceImages.length >= 4) {
+      setError("Maximum 4 reference images allowed. Remove one first.");
+      return;
+    }
+    const lastImage = generatedImages[generatedImages.length - 1];
+    setSettings(prev => ({ ...prev, referenceImages: [...prev.referenceImages, lastImage.url] }));
+  };
 
   const currentImage = generatedImages.length > 0 ? generatedImages[selectedImageIndex] : null;
   const hasCustomCamera = settings.cameraControls.rotation !== 0 || settings.cameraControls.moveForward !== 0 || settings.cameraControls.verticalAngle !== 0 || settings.cameraControls.isWideAngle;
@@ -599,112 +540,6 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
 
   return (
     <div className="flex flex-row h-full bg-zinc-950 relative w-full overflow-hidden">
-      {/* API Key Modal */}
-      {apiKeyModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className="bg-zinc-900 border border-zinc-700 p-6 rounded-2xl w-full max-w-md shadow-2xl space-y-4">
-                  <div className="flex items-center gap-3 mb-2">
-                      <div className="bg-amber-500/10 p-2 rounded-lg text-amber-500"><KeyIcon className="w-6 h-6" /></div>
-                      <div>
-                          <h3 className="text-white font-bold text-lg">Configure API Key</h3>
-                          <p className="text-xs text-zinc-400">Enter your Google GenAI API Key to continue.</p>
-                      </div>
-                  </div>
-
-                  <div className="space-y-2">
-                      <label className="text-xs uppercase font-bold text-zinc-500">Google Gemini API Key</label>
-                      <input
-                        type="password"
-                        value={customApiKey}
-                        onChange={(e) => {
-                            setCustomApiKey(e.target.value);
-                            setKeyError(null);
-                        }}
-                        placeholder="AIzaSy..."
-                        className={`w-full bg-zinc-950 border rounded-lg p-3 text-white focus:border-amber-500 outline-none text-sm font-mono ${keyError ? 'border-red-500 focus:border-red-500' : 'border-zinc-700'}`}
-                      />
-                      {keyError && (
-                          <div className="flex items-start gap-2 text-red-400 text-[11px] mt-1 bg-red-900/20 p-2 rounded border border-red-500/20">
-                              <ExclamationTriangleIcon className="w-4 h-4 shrink-0" />
-                              <span>{keyError}</span>
-                          </div>
-                      )}
-                      <p className="text-[10px] text-zinc-500">
-                          Veo models are Google Cloud models. Please use a valid Google Gemini API Key.
-                          (Replicate keys are not supported).
-                      </p>
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
-                      <button
-                        onClick={() => setApiKeyModalOpen(false)}
-                        className="flex-1 py-2.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition text-sm font-medium"
-                      >
-                          Cancel
-                      </button>
-                      <button
-                        onClick={handleSaveApiKey}
-                        className="flex-1 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold shadow-lg shadow-amber-900/20 transition text-sm"
-                      >
-                          Save Key
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {replicateApiKeyModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className="bg-zinc-900 border border-zinc-700 p-6 rounded-2xl w-full max-w-md shadow-2xl space-y-4">
-                  <div className="flex items-center gap-3 mb-2">
-                      <div className="bg-purple-500/10 p-2 rounded-lg text-purple-500"><KeyIcon className="w-6 h-6" /></div>
-                      <div>
-                          <h3 className="text-white font-bold text-lg">Configure Replicate API Key</h3>
-                          <p className="text-xs text-zinc-400">Enter your Replicate API Key to use video models.</p>
-                      </div>
-                  </div>
-
-                  <div className="space-y-2">
-                      <label className="text-xs uppercase font-bold text-zinc-500">Replicate API Key</label>
-                      <input
-                        type="password"
-                        value={replicateApiKey}
-                        onChange={(e) => {
-                            setReplicateApiKey(e.target.value);
-                            setReplicateKeyError(null);
-                        }}
-                        placeholder="r8_..."
-                        className={`w-full bg-zinc-950 border rounded-lg p-3 text-white focus:border-purple-500 outline-none text-sm font-mono ${replicateKeyError ? 'border-red-500 focus:border-red-500' : 'border-zinc-700'}`}
-                      />
-                      {replicateKeyError && (
-                          <div className="flex items-start gap-2 text-red-400 text-[11px] mt-1 bg-red-900/20 p-2 rounded border border-red-500/20">
-                              <ExclamationTriangleIcon className="w-4 h-4 shrink-0" />
-                              <span>{replicateKeyError}</span>
-                          </div>
-                      )}
-                      <p className="text-[10px] text-zinc-500">
-                          Get your API key from replicate.com/account. Keys typically start with 'r8_'.
-                      </p>
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
-                      <button
-                        onClick={() => setReplicateApiKeyModalOpen(false)}
-                        className="flex-1 py-2.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition text-sm font-medium"
-                      >
-                          Cancel
-                      </button>
-                      <button
-                        onClick={handleSaveReplicateApiKey}
-                        className="flex-1 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold shadow-lg shadow-purple-900/20 transition text-sm"
-                      >
-                          Save Key
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
-
       <div className="w-10 flex-none z-30 bg-zinc-950 border-r border-zinc-800 flex flex-col items-center py-4 gap-4 h-full">
            <button onClick={() => toggleSidebar('story')} className={`p-2 rounded-lg transition-all relative group ${activeSidebar === 'story' ? 'text-indigo-400 bg-zinc-800' : 'text-zinc-500 hover:text-indigo-300'}`} title="Story Flow">
                <div className="[writing-mode:vertical-rl] rotate-180 font-bold text-[10px] tracking-widest uppercase whitespace-nowrap h-24 flex items-center justify-center">Story Flow</div>
@@ -789,15 +624,6 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                     <h2 className="text-lg font-bold text-white">Visual Studio</h2>
                     <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20 ml-2">Nano Banana Pro</span>
                 </div>
-                
-                {/* API Key Config Button */}
-                <button 
-                  onClick={() => setApiKeyModalOpen(true)}
-                  className="p-2 text-zinc-500 hover:text-amber-500 hover:bg-zinc-900 rounded-lg transition"
-                  title="Configure API Key"
-                >
-                    <KeyIcon className="w-5 h-5" />
-                </button>
             </div>
           </div>
 
@@ -942,47 +768,67 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                  </div>
 
                  {/* VIDEO GENERATION MODULE */}
-                 <div className="mt-6 border border-zinc-800 rounded-xl overflow-hidden bg-[#1e1e20]">
-                     <button onClick={() => setIsVideoExpanded(!isVideoExpanded)} className="w-full p-3 bg-zinc-800 hover:bg-zinc-700 transition flex items-center justify-between">
+                 <div className="mt-6 border border-emerald-800 rounded-xl overflow-hidden bg-[#1e1e20]">
+                     <button onClick={() => setIsReplicateExpanded(!isReplicateExpanded)} className="w-full p-3 bg-zinc-800 hover:bg-zinc-700 transition flex items-center justify-between">
                          <div className="flex items-center gap-2">
                              <FilmIcon className="w-4 h-4 text-emerald-500" />
                              <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Video Generation</span>
-                             <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 rounded ml-2">Veo 3.1</span>
+                             <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 rounded ml-2">
+                                 {REPLICATE_MODELS.find(m => m.id === replicateVideoSettings.model)?.name || 'Multiple Models'}
+                             </span>
                          </div>
-                         {isVideoExpanded ? <ChevronUpIcon className="w-3 h-3 text-zinc-500" /> : <ChevronDownIcon className="w-3 h-3 text-zinc-500" />}
+                         {isReplicateExpanded ? <ChevronUpIcon className="w-3 h-3 text-zinc-500" /> : <ChevronDownIcon className="w-3 h-3 text-zinc-500" />}
                      </button>
-                     
-                     {isVideoExpanded && (
+
+                     {isReplicateExpanded && (() => {
+                         const selectedModel = REPLICATE_MODELS.find(m => m.id === replicateVideoSettings.model);
+                         const requiresImage = selectedModel?.requiresStartImage || selectedModel?.type === 'image-to-video';
+
+                         return (
                          <div className="p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
+                             {/* Frame Uploads */}
                              <div className="flex gap-4 items-stretch h-32">
                                  {/* Start Frame */}
                                  <div className="w-1/4 relative group bg-zinc-900 rounded-lg border border-zinc-700 overflow-hidden flex flex-col">
-                                     <div className="text-[10px] text-zinc-500 uppercase font-bold p-1 text-center bg-zinc-950">Start Frame</div>
+                                     <div className="text-[10px] text-zinc-500 uppercase font-bold p-1 text-center bg-zinc-950 flex items-center justify-center gap-1">
+                                         Start Frame
+                                         {requiresImage && <span className="text-red-400">*</span>}
+                                     </div>
                                      <div className="flex-1 relative flex items-center justify-center">
-                                         {videoFrames.start ? <img src={videoFrames.start} alt="Start" className="absolute inset-0 w-full h-full object-cover" /> : <span className="text-[10px] text-zinc-600">Auto / Upload</span>}
+                                         {videoFrames.start ? (
+                                             <img src={videoFrames.start} alt="Start" className="absolute inset-0 w-full h-full object-cover" />
+                                         ) : (
+                                             <span className="text-[10px] text-zinc-600">{requiresImage ? 'Required' : 'Optional'}</span>
+                                         )}
                                          <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition">
-                                             <div className="bg-zinc-800 p-1.5 rounded-full border border-zinc-600"><PencilSquareIcon className="w-4 h-4 text-white" /></div>
+                                             <div className="bg-zinc-800 p-1.5 rounded-full border border-zinc-600">
+                                                 <PencilSquareIcon className="w-4 h-4 text-white" />
+                                             </div>
                                              <input type="file" accept="image/*" className="hidden" onChange={(e) => handleVideoFrameUpload(e, 'start')} />
                                          </label>
                                      </div>
                                  </div>
-                                 
+
                                  {/* Motion Prompt */}
                                  <div className="flex-1 flex flex-col relative">
                                      <div className="flex justify-between items-center mb-1">
                                          <span className="text-[10px] text-zinc-500 uppercase font-bold">Motion Prompt</span>
-                                         <button 
-                                            onClick={handleImprovePrompt} 
+                                         <button
+                                            onClick={handleImprovePrompt}
                                             disabled={isImprovingPrompt}
                                             className="text-[9px] flex items-center gap-1 text-indigo-400 hover:text-indigo-300 disabled:opacity-50 transition"
                                          >
-                                            {isImprovingPrompt ? <div className="w-2 h-2 rounded-full border border-indigo-400 border-t-transparent animate-spin"/> : <SparklesIcon className="w-3 h-3" />}
+                                            {isImprovingPrompt ? (
+                                                <div className="w-2 h-2 rounded-full border border-indigo-400 border-t-transparent animate-spin"/>
+                                            ) : (
+                                                <SparklesIcon className="w-3 h-3" />
+                                            )}
                                             {isImprovingPrompt ? 'Analyzing...' : 'Improve Prompt'}
                                          </button>
                                      </div>
-                                     <textarea 
-                                        value={videoSettings.motionPrompt} 
-                                        onChange={(e) => setVideoSettings({...videoSettings, motionPrompt: e.target.value})} 
+                                     <textarea
+                                        value={videoSettings.motionPrompt}
+                                        onChange={(e) => setVideoSettings({...videoSettings, motionPrompt: e.target.value})}
                                         placeholder={prompt ? "Using main prompt (edit to override)..." : "Describe the camera motion or action..."}
                                         className="w-full h-full bg-zinc-900 text-white p-2 text-xs rounded-lg border border-zinc-700 resize-none outline-none focus:border-emerald-500"
                                      />
@@ -992,161 +838,217 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                                  <div className="w-1/4 relative group bg-zinc-900 rounded-lg border border-zinc-700 overflow-hidden flex flex-col">
                                      <div className="text-[10px] text-zinc-500 uppercase font-bold p-1 text-center bg-zinc-950">End Frame</div>
                                       <div className="flex-1 relative flex items-center justify-center">
-                                         {videoFrames.end ? <img src={videoFrames.end} alt="End" className="absolute inset-0 w-full h-full object-cover" /> : <span className="text-[10px] text-zinc-600">Auto / Upload</span>}
+                                         {videoFrames.end ? (
+                                             <img src={videoFrames.end} alt="End" className="absolute inset-0 w-full h-full object-cover" />
+                                         ) : (
+                                             <span className="text-[10px] text-zinc-600">Optional</span>
+                                         )}
                                          <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition">
-                                             <div className="bg-zinc-800 p-1.5 rounded-full border border-zinc-600"><PencilSquareIcon className="w-4 h-4 text-white" /></div>
+                                             <div className="bg-zinc-800 p-1.5 rounded-full border border-zinc-600">
+                                                 <PencilSquareIcon className="w-4 h-4 text-white" />
+                                             </div>
                                               <input type="file" accept="image/*" className="hidden" onChange={(e) => handleVideoFrameUpload(e, 'end')} />
                                          </label>
                                      </div>
                                  </div>
                              </div>
 
-                             <div className="grid grid-cols-3 gap-3">
-                                 <div>
-                                     <label className="text-[10px] text-zinc-500 block mb-1">Video Model</label>
-                                     <select value={videoSettings.model} onChange={(e) => setVideoSettings({...videoSettings, model: e.target.value})} className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none">
-                                         {VIDEO_MODELS.map(m => <option key={m.value + m.label} value={m.value}>{m.label}</option>)}
-                                     </select>
-                                 </div>
-                                 <div>
-                                     <label className="text-[10px] text-zinc-500 block mb-1">Duration (Sec)</label>
-                                     <select value={videoSettings.duration} onChange={(e) => setVideoSettings({...videoSettings, duration: e.target.value})} className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none">
-                                         {VIDEO_DURATIONS.map(d => <option key={d} value={d}>{d}</option>)}
-                                     </select>
-                                 </div>
-                                 <div>
-                                     <label className="text-[10px] text-zinc-500 block mb-1">Frame Rate (FPS)</label>
-                                     <select value={videoSettings.frameRate} onChange={(e) => setVideoSettings({...videoSettings, frameRate: e.target.value})} className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none">
-                                         {VIDEO_FRAMERATES.map(f => <option key={f} value={f}>{f}</option>)}
-                                     </select>
-                                 </div>
-                             </div>
-
-                             <button 
-                                onClick={handleGenerateVideo}
-                                disabled={isGeneratingVideo}
-                                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-500/20 disabled:opacity-50 transition flex items-center justify-center gap-2 text-sm"
-                             >
-                                 {isGeneratingVideo ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FilmIcon className="w-4 h-4" />}
-                                 Generate Video
-                             </button>
-                         </div>
-                     )}
-                 </div>
-
-                 {/* REPLICATE VIDEO GENERATION MODULE */}
-                 <div className="mt-6 border border-purple-800 rounded-xl overflow-hidden bg-[#1e1e20]">
-                     <button onClick={() => setIsReplicateExpanded(!isReplicateExpanded)} className="w-full p-3 bg-zinc-800 hover:bg-zinc-700 transition flex items-center justify-between">
-                         <div className="flex items-center gap-2">
-                             <VideoCameraIcon className="w-4 h-4 text-purple-500" />
-                             <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Replicate Video Models</span>
-                             <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-1.5 rounded ml-2">Multiple Models</span>
-                         </div>
-                         {isReplicateExpanded ? <ChevronUpIcon className="w-3 h-3 text-zinc-500" /> : <ChevronDownIcon className="w-3 h-3 text-zinc-500" />}
-                     </button>
-
-                     {isReplicateExpanded && (
-                         <div className="p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
+                             {/* Model Selector */}
                              <div className="space-y-2">
                                  <label className="text-[10px] text-zinc-500 block mb-1">Video Model</label>
                                  <select
                                     value={replicateVideoSettings.model}
                                     onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, model: e.target.value})}
-                                    className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none focus:border-purple-500"
+                                    className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none focus:border-emerald-500"
                                  >
                                      {REPLICATE_MODELS.map(m => (
-                                         <option key={m.id} value={m.id}>{m.name} ({m.type})</option>
+                                         <option key={m.id} value={m.id}>{m.name} - {m.type}</option>
                                      ))}
                                  </select>
                                  <p className="text-[9px] text-zinc-500 mt-1">
-                                     {REPLICATE_MODELS.find(m => m.id === replicateVideoSettings.model)?.description}
+                                     {selectedModel?.description}
                                  </p>
                              </div>
 
+                             {/* Dynamic Options Grid */}
                              <div className="grid grid-cols-2 gap-3">
+                                 {/* Aspect Ratio (or note if from input image) */}
                                  <div>
                                      <label className="text-[10px] text-zinc-500 block mb-1">Aspect Ratio</label>
-                                     <select
-                                        value={replicateVideoSettings.aspectRatio}
-                                        onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, aspectRatio: e.target.value})}
-                                        className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                     {selectedModel?.aspectRatios ? (
+                                         <select
+                                            value={replicateVideoSettings.aspectRatio}
+                                            onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, aspectRatio: e.target.value})}
+                                            className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                         >
+                                             {selectedModel.aspectRatios.map(ratio => (
+                                                 <option key={ratio} value={ratio}>{ratio}</option>
+                                             ))}
+                                         </select>
+                                     ) : (
+                                         <div className="w-full bg-zinc-900/50 text-zinc-500 p-2 rounded border border-zinc-700/50 text-xs flex items-center justify-center opacity-50 cursor-not-allowed">
+                                             From Input Image
+                                         </div>
+                                     )}
+                                 </div>
+
+                                 {/* Duration (dynamic based on model) */}
+                                 {selectedModel?.durations && (
+                                     <div>
+                                         <label className="text-[10px] text-zinc-500 block mb-1">Duration</label>
+                                         <select
+                                            value={replicateVideoSettings.duration}
+                                            onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, duration: e.target.value})}
+                                            className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                         >
+                                             {selectedModel.durations.map(dur => (
+                                                 <option key={dur} value={dur}>{dur} seconds</option>
+                                             ))}
+                                         </select>
+                                     </div>
+                                 )}
+
+                                 {/* Mode (for Kling - shows in place of resolution) */}
+                                 {selectedModel?.modes && (
+                                     <div>
+                                         <label className="text-[10px] text-zinc-500 block mb-1">Mode (Quality)</label>
+                                         <select
+                                            value={replicateVideoSettings.mode}
+                                            onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, mode: e.target.value})}
+                                            className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                         >
+                                             {selectedModel.modes.map(mode => (
+                                                 <option key={mode} value={mode}>{mode === 'standard' ? 'Standard (720p)' : 'Pro (1080p)'}</option>
+                                             ))}
+                                         </select>
+                                     </div>
+                                 )}
+
+                                 {/* Resolution (if not Kling which uses mode) */}
+                                 {!selectedModel?.modes && (
+                                     <div>
+                                         <label className="text-[10px] text-zinc-500 block mb-1">Resolution</label>
+                                         {selectedModel?.resolutions ? (
+                                             <select
+                                                value={replicateVideoSettings.resolution}
+                                                onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, resolution: e.target.value})}
+                                                className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                             >
+                                                 {selectedModel.resolutions.map(res => (
+                                                     <option key={res} value={res}>{res}</option>
+                                                 ))}
+                                             </select>
+                                         ) : (
+                                             <div className="w-full bg-zinc-900/50 text-zinc-500 p-2 rounded border border-zinc-700/50 text-xs flex items-center justify-center opacity-50 cursor-not-allowed">
+                                                 Auto
+                                             </div>
+                                         )}
+                                     </div>
+                                 )}
+
+                                 {/* FPS (for Wan model only) */}
+                                 {selectedModel?.fpsRange && (
+                                     <div>
+                                         <label className="text-[10px] text-zinc-500 block mb-1">FPS (Frames/Sec)</label>
+                                         <input
+                                            type="number"
+                                            min={selectedModel.fpsRange[0]}
+                                            max={selectedModel.fpsRange[1]}
+                                            value={replicateVideoSettings.fps || 16}
+                                            onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, fps: parseInt(e.target.value)})}
+                                            className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                         />
+                                     </div>
+                                 )}
+
+                                 {/* Frame Count (for Wan model only) */}
+                                 {selectedModel?.frameRange && (
+                                     <div>
+                                         <label className="text-[10px] text-zinc-500 block mb-1">Frame Count</label>
+                                         <input
+                                            type="number"
+                                            min={selectedModel.frameRange[0]}
+                                            max={selectedModel.frameRange[1]}
+                                            value={replicateVideoSettings.numFrames || 81}
+                                            onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, numFrames: parseInt(e.target.value)})}
+                                            className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                         />
+                                     </div>
+                                 )}
+                             </div>
+
+                             {/* Audio Generation Toggle (for Veo models) */}
+                             {selectedModel?.supportsAudio && (
+                                 <div className="flex items-center justify-between p-2 bg-zinc-900 rounded-lg border border-zinc-700">
+                                     <label className="text-[10px] text-zinc-400">Generate Audio</label>
+                                     <button
+                                        onClick={() => setReplicateVideoSettings({
+                                            ...replicateVideoSettings,
+                                            generateAudio: !replicateVideoSettings.generateAudio
+                                        })}
+                                        className={`relative w-10 h-5 rounded-full transition ${
+                                            replicateVideoSettings.generateAudio !== false ? 'bg-emerald-500' : 'bg-zinc-700'
+                                        }`}
                                      >
-                                         <option value="16:9">16:9</option>
-                                         <option value="9:16">9:16</option>
-                                         <option value="1:1">1:1</option>
-                                         <option value="21:9">21:9</option>
-                                     </select>
+                                         <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
+                                             replicateVideoSettings.generateAudio !== false ? 'translate-x-5' : 'translate-x-0'
+                                         }`} />
+                                     </button>
                                  </div>
-                                 <div>
-                                     <label className="text-[10px] text-zinc-500 block mb-1">Duration</label>
-                                     <select
-                                        value={replicateVideoSettings.duration}
-                                        onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, duration: e.target.value})}
-                                        className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
-                                     >
-                                         <option value="5">5 seconds</option>
-                                         <option value="6">6 seconds</option>
-                                         <option value="10">10 seconds</option>
-                                     </select>
-                                 </div>
+                             )}
+
+                             {/* Negative Prompt */}
+                             <div>
+                                 <label className="text-[10px] text-zinc-500 block mb-1">Negative Prompt (Optional)</label>
+                                 <textarea
+                                    value={replicateVideoSettings.negativePrompt || ''}
+                                    onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, negativePrompt: e.target.value})}
+                                    placeholder="Describe what you don't want to see..."
+                                    className="w-full bg-zinc-900 text-white p-2 text-xs rounded-lg border border-zinc-700 resize-none outline-none focus:border-emerald-500 h-16"
+                                 />
                              </div>
 
-                             <div className="grid grid-cols-2 gap-3">
-                                 <div>
-                                     <label className="text-[10px] text-zinc-500 block mb-1">Inference Steps</label>
-                                     <input
-                                        type="number"
-                                        min="10"
-                                        max="100"
-                                        value={replicateVideoSettings.inferenceSteps}
-                                        onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, inferenceSteps: parseInt(e.target.value)})}
-                                        className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
-                                     />
-                                 </div>
-                                 <div>
-                                     <label className="text-[10px] text-zinc-500 block mb-1">Guidance Scale</label>
-                                     <input
-                                        type="number"
-                                        min="1"
-                                        max="20"
-                                        step="0.1"
-                                        value={replicateVideoSettings.guidanceScale}
-                                        onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, guidanceScale: parseFloat(e.target.value)})}
-                                        className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
-                                     />
-                                 </div>
-                             </div>
-
-                             <div className="flex items-center justify-between gap-2 pt-2">
-                                 <button
-                                    onClick={() => setReplicateApiKeyModalOpen(true)}
-                                    className="flex items-center gap-1.5 text-[10px] text-purple-400 hover:text-purple-300 transition"
-                                 >
-                                    <KeyIcon className="w-3 h-3" />
-                                    {hasValidReplicateApiKey() ? 'Update API Key' : 'Configure API Key'}
-                                 </button>
-                                 <span className={`text-[9px] ${hasValidReplicateApiKey() ? 'text-green-400' : 'text-amber-400'}`}>
-                                    {hasValidReplicateApiKey() ? '✓ API Key Set' : '⚠ API Key Required'}
-                                 </span>
-                             </div>
-
+                             {/* Generate Button */}
                              <button
                                 onClick={handleGenerateReplicateVideo}
-                                disabled={isGeneratingReplicateVideo}
-                                className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg shadow-lg shadow-purple-500/20 disabled:opacity-50 transition flex items-center justify-center gap-2 text-sm"
+                                disabled={isGeneratingReplicateVideo || (requiresImage && !videoFrames.start)}
+                                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 text-sm"
                              >
-                                 {isGeneratingReplicateVideo ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <VideoCameraIcon className="w-4 h-4" />}
-                                 {isGeneratingReplicateVideo ? 'Generating...' : 'Generate with Replicate'}
+                                 {isGeneratingReplicateVideo ? (
+                                     <>
+                                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                         Generating...
+                                     </>
+                                 ) : (
+                                     <>
+                                         <FilmIcon className="w-4 h-4" />
+                                         Generate Video
+                                     </>
+                                 )}
                              </button>
                          </div>
-                     )}
+                         );
+                     })()}
                  </div>
 
                  <div className="mt-4 pt-4 border-t border-zinc-800">
                     <div className="flex justify-between items-center mb-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Reference Images</label><span className="text-[10px] text-zinc-500">{settings.referenceImages.length}/4</span></div>
                     <div className="grid grid-cols-4 gap-2">
                         {settings.referenceImages.map((img, idx) => (<div key={idx} className="relative aspect-square rounded-lg overflow-hidden group border border-zinc-700 bg-zinc-900"><img src={img} alt="Ref" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" /><button onClick={() => handleRemoveReferenceImage(idx)} className="absolute top-1 right-1 bg-black/70 hover:bg-red-500/80 p-1 rounded-full text-white backdrop-blur-sm transition" title="Remove"><XMarkIcon className="w-3 h-3" /></button></div>))}
-                        {settings.referenceImages.length < 4 && (<label className="aspect-square rounded-lg border border-dashed border-zinc-700 hover:border-green-500/50 hover:bg-zinc-800/50 transition cursor-pointer flex flex-col items-center justify-center text-zinc-500 hover:text-green-400 group"><PlusIcon className="w-5 h-5 mb-1 group-hover:scale-110 transition" /><span className="text-[9px]">Add Image</span><input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} /></label>)}
+                        {settings.referenceImages.length < 4 && (
+                          <>
+                            <button
+                              onClick={handleUseLastRender}
+                              disabled={generatedImages.length === 0}
+                              className="aspect-square rounded-lg border border-dashed border-zinc-700 hover:border-indigo-500/50 hover:bg-zinc-800/50 transition cursor-pointer flex flex-col items-center justify-center text-zinc-500 hover:text-indigo-400 group disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-zinc-700 disabled:hover:text-zinc-500"
+                              title={generatedImages.length === 0 ? "No images generated yet" : "Use last generated image"}
+                            >
+                              <ArrowDownTrayIcon className="w-5 h-5 mb-1 group-hover:scale-110 transition" />
+                              <span className="text-[9px]">Use Last</span>
+                            </button>
+                            <label className="aspect-square rounded-lg border border-dashed border-zinc-700 hover:border-green-500/50 hover:bg-zinc-800/50 transition cursor-pointer flex flex-col items-center justify-center text-zinc-500 hover:text-green-400 group"><PlusIcon className="w-5 h-5 mb-1 group-hover:scale-110 transition" /><span className="text-[9px]">Add Image</span><input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} /></label>
+                          </>
+                        )}
                     </div>
                  </div>
               </div>
