@@ -161,8 +161,12 @@ app.post('/api/generate/image', async (req, res) => {
       input.output_format = output_format || 'png';
       input.safety_filter_level = 'block_only_high';
 
-      if (reference_image) {
-        input.image_input = [reference_image];
+      if (req.body.image_input) {
+        input.image_input = req.body.image_input;
+      } else if (reference_image) {
+        // Fallback for single image
+        input.image = reference_image;
+        input.image_prompt = reference_image;
       }
     }
 
@@ -224,8 +228,9 @@ app.post('/api/generate/image', async (req, res) => {
     } else {
       res.json({ success: true, result: imageUrl });
     }
+
   } catch (error) {
-    console.error('Image generation error:', error);
+    logger.error('/api/generate/image', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to generate image'

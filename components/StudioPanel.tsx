@@ -186,7 +186,11 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
         try {
             const systemInstruction = localStorage.getItem('gemini_architect_system_instruction') || '';
             const prompts = await analyzeStoryboardFlowWithReplicate(storyFlow.storyboardImage, storyFlow.storyPrompt, systemInstruction);
-            setStoryFlow(prev => ({ ...prev, detectedPrompts: prompts }));
+            if (prompts.length === 0) {
+                setError("Analysis complete but no panels identified. Try ensuring the storyboard is clear and lines are visible.");
+            } else {
+                setStoryFlow(prev => ({ ...prev, detectedPrompts: prompts }));
+            }
         } catch (e) {
             setError("Failed to analyze storyboard.");
         } finally {
@@ -253,7 +257,11 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
             if (regex.test(finalPrompt)) {
                 finalPrompt = finalPrompt.replace(regex, char.name);
                 if (!characterRefs.find(c => c.name === char.name)) {
-                    characterRefs.push({ name: char.name, imageBase64: char.imageBase64 });
+                    characterRefs.push({
+                        name: char.name,
+                        imageBase64: char.imageBase64,
+                        persona: char.personaPrompt // Pass the persona text
+                    });
                 }
             }
         });
@@ -294,7 +302,15 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                 const promises = storyFlow.detectedPrompts.map((panelPrompt, idx) =>
                     performGeneration(panelPrompt, `Panel ${idx + 1}`, settings)
                 );
-                results = await Promise.all(promises);
+                const outcomes = await Promise.allSettled(promises);
+                results = outcomes
+                    .filter((r): r is PromiseFulfilledResult<GeneratedImage> => r.status === 'fulfilled')
+                    .map(r => r.value);
+
+                const failures = outcomes.filter(r => r.status === 'rejected');
+                if (failures.length > 0) {
+                    setError(`Storyboard partial completion: ${results.length}/${outcomes.length} panels generated.`);
+                }
             } else {
                 if (!prompt) { setIsGenerating(false); return; }
                 if (settings.cameraAngles.length === 0) { setError("Please select at least one camera angle."); setIsGenerating(false); return; }
@@ -308,7 +324,19 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                 else anglesToGenerate = settings.cameraAngles;
 
                 const promises = anglesToGenerate.map(angle => performGeneration(prompt, angle, settings));
-                results = await Promise.all(promises);
+                const outcomes = await Promise.allSettled(promises);
+
+                results = outcomes
+                    .filter((r): r is PromiseFulfilledResult<GeneratedImage> => r.status === 'fulfilled')
+                    .map(r => r.value);
+
+                const failures = outcomes.filter(r => r.status === 'rejected');
+                if (failures.length > 0) {
+                    console.error('Partial generation failures:', failures);
+                    const failCount = failures.length;
+                    const total = outcomes.length;
+                    setError(`Generated ${results.length}/${total} images. ${failCount} failed. Check console for details.`);
+                }
             }
 
             setGeneratedImages(results);
@@ -571,9 +599,13 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                     <div className="[writing-mode:vertical-rl] rotate-180 font-bold text-[10px] tracking-widest uppercase whitespace-nowrap h-24 flex items-center justify-center">Relight</div>
                     {activeSidebar === 'relight' && <div className="absolute right-0 top-2 bottom-2 w-0.5 bg-amber-500 rounded-l"></div>}
                 </button>
+                <button onClick={() => toggleSidebar('video')} className={`p-1 rounded-lg transition-all relative group ${activeSidebar === 'video' ? 'text-emerald-400 bg-zinc-800' : 'text-zinc-500 hover:text-emerald-300'}`} title="Video Generation">
+                    <div className="[writing-mode:vertical-rl] rotate-180 font-bold text-[10px] tracking-widest uppercase whitespace-nowrap h-24 flex items-center justify-center">Video</div>
+                    {activeSidebar === 'video' && <div className="absolute right-0 top-2 bottom-2 w-0.5 bg-emerald-500 rounded-l"></div>}
+                </button>
             </div>
 
-            <div className={`flex-none bg-zinc-900 border-r border-zinc-800 transition-all duration-300 ease-in-out flex flex-col overflow-hidden ${['story', 'characters', 'relight'].includes(activeSidebar) ? 'w-80 shadow-2xl opacity-100' : 'w-0 opacity-0 border-none'}`}>
+            <div className={`flex-none bg-zinc-900 border-r border-zinc-800 transition-all duration-300 ease-in-out flex flex-col overflow-hidden ${['story', 'characters', 'relight', 'video'].includes(activeSidebar) ? 'w-80 shadow-2xl opacity-100' : 'w-0 opacity-0 border-none'}`}>
                 {activeSidebar === 'story' && (
                     <div className="flex-1 p-3 overflow-y-auto space-y-3 pb-24 scrollbar-hide min-w-0">
                         <div className="flex items-center gap-3 mb-2"><SparklesIcon className="w-6 h-6 text-indigo-400" /><h3 className="font-bold text-white text-base">Story Flow</h3></div>
@@ -589,7 +621,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                         </div>
                         <div className="space-y-3">
                             <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">2. Story Prompt</label>
-                            <textarea value={storyFlow.storyPrompt} onChange={(e) => setStoryFlow(prev => ({ ...prev, storyPrompt: e.target.value }))} className="w-full bg-zinc-800 text-zinc-200 text-sm p-4 rounded-xl border border-zinc-700 outline-none focus:border-indigo-500 min-h-[100px] resize-none" placeholder="Briefly describe the scene flow..." />
+                            <textarea value={storyFlow.storyPrompt} onChange={(e) => setStoryFlow(prev => ({ ...prev, storyPrompt: e.target.value }))} className="w-full bg-zinc-800 text-zinc-200 text-sm p-4 rounded-xl border border-zinc-700 outline-none focus:border-indigo-500 min-h-[100px] resize-none" placeholder="Briefly describe the scene flow..." autoComplete="off" data-lpignore="true" />
                             <div className="flex justify-end"><button onClick={handleSaveStoryPrompt} className={`text-xs px-4 py-2 rounded-lg transition-all flex items-center gap-2 font-medium ${storyPromptSaveSuccess ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700'}`}>{storyPromptSaveSuccess ? <CheckCircleIcon className="w-3.5 h-3.5" /> : null}{storyPromptSaveSuccess ? 'Saved' : 'Save Prompt'}</button></div>
                         </div>
                         <button onClick={handleAnalyzeStoryFlow} disabled={!storyFlow.storyboardImage || storyFlow.isAnalyzing} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20">{storyFlow.isAnalyzing ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <BoltIcon className="w-5 h-5" />}Analyze Board</button>
@@ -607,11 +639,11 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                                     <input type="file" accept="image/*" className="hidden" onChange={handleNewCharacterUpload} />
                                 </label>
                                 <div className="flex-1 space-y-3">
-                                    <input type="text" placeholder="Name (e.g. Vani)" value={newCharacterName} onChange={e => setNewCharacterName(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-sm text-white focus:border-pink-500 outline-none" />
+                                    <input type="text" placeholder="Name (e.g. Vani)" value={newCharacterName} onChange={e => setNewCharacterName(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-sm text-white focus:border-pink-500 outline-none" autoComplete="off" data-lpignore="true" />
                                     <button onClick={handleAutoGeneratePersona} disabled={isGeneratingPersona || !newCharacterImage} className="w-full bg-zinc-700 hover:bg-zinc-600 text-xs py-2 rounded-lg text-zinc-300 flex items-center justify-center gap-1.5 disabled:opacity-50 transition">{isGeneratingPersona ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <SparklesIcon className="w-3.5 h-3.5" />}Auto-Gen Persona</button>
                                 </div>
                             </div>
-                            <textarea value={newCharacterPersona} onChange={e => setNewCharacterPersona(e.target.value)} placeholder="Persona Prompt (NAME|trait|trait...)" className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-xs text-zinc-300 focus:border-pink-500 outline-none min-h-[80px]" />
+                            <textarea value={newCharacterPersona} onChange={e => setNewCharacterPersona(e.target.value)} placeholder="Persona Prompt (NAME|trait|trait...)" className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-xs text-zinc-300 focus:border-pink-500 outline-none min-h-[80px]" autoComplete="off" data-lpignore="true" />
                             <button onClick={handleSaveCharacter} className="w-full bg-pink-600 hover:bg-pink-500 text-white text-sm py-2.5 rounded-lg font-bold shadow-lg shadow-pink-500/20 transition">Save Character</button>
                         </div>
                         <div className="space-y-4">
@@ -630,6 +662,242 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                     <div className="flex-1 p-3 overflow-hidden flex flex-col min-w-0 h-full">
                         <RelightPanel settings={settings.relight} onChange={(newRelight) => setSettings({ ...settings, relight: newRelight })} />
                         <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[10px] text-amber-500 flex gap-2 leading-relaxed"><LightBulbIcon className="w-5 h-5 shrink-0" /><div><strong>Pro Tip:</strong> Drag the lights on the canvas to position them. The beam shape previews the spread and softness.</div></div>
+                    </div>
+                )}
+                {activeSidebar === 'video' && (
+                    <div className="flex-1 p-3 overflow-y-auto space-y-3 pb-24 scrollbar-hide min-w-0">
+                        <div className="flex items-center gap-3 mb-2"><FilmIcon className="w-6 h-6 text-emerald-400" /><h3 className="font-bold text-white text-base">Video Generation</h3></div>
+                        {(() => {
+                            const selectedModel = REPLICATE_MODELS.find(m => m.id === replicateVideoSettings.model);
+                            const requiresImage = selectedModel?.requiresStartImage || selectedModel?.type === 'image-to-video';
+
+                            return (
+                                <div className="space-y-4">
+                                    {/* Frame Uploads */}
+                                    <div className="flex gap-4 items-stretch h-32">
+                                        {/* Start Frame */}
+                                        <div className="w-1/4 relative group bg-zinc-900 rounded-lg border border-zinc-700 overflow-hidden flex flex-col">
+                                            <div className="text-[10px] text-zinc-500 uppercase font-bold p-1 text-center bg-zinc-950 flex items-center justify-center gap-1">
+                                                Start Frame
+                                                {requiresImage && <span className="text-red-400">*</span>}
+                                            </div>
+                                            <div className="flex-1 relative flex items-center justify-center">
+                                                {videoFrames.start ? (
+                                                    <img src={videoFrames.start} alt="Start" className="absolute inset-0 w-full h-full object-cover" />
+                                                ) : (
+                                                    <span className="text-[10px] text-zinc-600">{requiresImage ? 'Required' : 'Optional'}</span>
+                                                )}
+                                                <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition">
+                                                    <div className="bg-zinc-800 p-1.5 rounded-full border border-zinc-600">
+                                                        <PencilSquareIcon className="w-4 h-4 text-white" />
+                                                    </div>
+                                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleVideoFrameUpload(e, 'start')} />
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        {/* Motion Prompt */}
+                                        <div className="flex-1 flex flex-col relative">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="text-[10px] text-zinc-500 uppercase font-bold">Motion Prompt</span>
+                                                <button
+                                                    onClick={handleImprovePrompt}
+                                                    disabled={isImprovingPrompt}
+                                                    className="text-[9px] flex items-center gap-1 text-indigo-400 hover:text-indigo-300 disabled:opacity-50 transition"
+                                                >
+                                                    {isImprovingPrompt ? (
+                                                        <div className="w-2 h-2 rounded-full border border-indigo-400 border-t-transparent animate-spin" />
+                                                    ) : (
+                                                        <SparklesIcon className="w-3 h-3" />
+                                                    )}
+                                                    {isImprovingPrompt ? 'Analyzing...' : 'Improve Prompt'}
+                                                </button>
+                                            </div>
+                                            <textarea
+                                                value={videoSettings.motionPrompt}
+                                                onChange={(e) => setVideoSettings({ ...videoSettings, motionPrompt: e.target.value })}
+                                                placeholder={prompt ? "Using main prompt (edit to override)..." : "Describe the camera motion or action..."}
+                                                className="w-full h-full bg-zinc-900 text-white p-2 text-xs rounded-lg border border-zinc-700 resize-none outline-none focus:border-emerald-500"
+                                            />
+                                        </div>
+
+                                        {/* End Frame */}
+                                        <div className="w-1/4 relative group bg-zinc-900 rounded-lg border border-zinc-700 overflow-hidden flex flex-col">
+                                            <div className="text-[10px] text-zinc-500 uppercase font-bold p-1 text-center bg-zinc-950">End Frame</div>
+                                            <div className="flex-1 relative flex items-center justify-center">
+                                                {videoFrames.end ? (
+                                                    <img src={videoFrames.end} alt="End" className="absolute inset-0 w-full h-full object-cover" />
+                                                ) : (
+                                                    <span className="text-[10px] text-zinc-600">Optional</span>
+                                                )}
+                                                <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition">
+                                                    <div className="bg-zinc-800 p-1.5 rounded-full border border-zinc-600">
+                                                        <PencilSquareIcon className="w-4 h-4 text-white" />
+                                                    </div>
+                                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleVideoFrameUpload(e, 'end')} />
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Model Selector */}
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] text-zinc-500 block mb-1">Video Model</label>
+                                        <select
+                                            value={replicateVideoSettings.model}
+                                            onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, model: e.target.value })}
+                                            className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none focus:border-emerald-500"
+                                        >
+                                            {REPLICATE_MODELS.map(m => (
+                                                <option key={m.id} value={m.id}>{m.name} - {m.type}</option>
+                                            ))}
+                                        </select>
+                                        <p className="text-[9px] text-zinc-500 mt-1">
+                                            {selectedModel?.description}
+                                        </p>
+                                    </div>
+
+                                    {/* Dynamic Options Grid */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {/* Aspect Ratio (or note if from input image) */}
+                                        <div>
+                                            <label className="text-[10px] text-zinc-500 block mb-1">Aspect Ratio</label>
+                                            {selectedModel?.aspectRatios ? (
+                                                <select
+                                                    value={replicateVideoSettings.aspectRatio}
+                                                    onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, aspectRatio: e.target.value })}
+                                                    className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                                >
+                                                    {selectedModel.aspectRatios.map(ratio => (
+                                                        <option key={ratio} value={ratio}>{ratio}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <div className="w-full bg-zinc-900/50 text-zinc-500 p-2 rounded border border-zinc-700/50 text-xs flex items-center justify-center opacity-50 cursor-not-allowed">
+                                                    From Input Image
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Duration (dynamic based on model) */}
+                                        {selectedModel?.durations && (
+                                            <div>
+                                                <label className="text-[10px] text-zinc-500 block mb-1">Duration</label>
+                                                <select
+                                                    value={replicateVideoSettings.duration}
+                                                    onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, duration: e.target.value })}
+                                                    className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                                >
+                                                    {selectedModel.durations.map(dur => (
+                                                        <option key={dur} value={dur}>{dur} seconds</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {/* Resolution */}
+                                        {true && (
+                                            <div>
+                                                <label className="text-[10px] text-zinc-500 block mb-1">Resolution</label>
+                                                {selectedModel?.resolutions ? (
+                                                    <select
+                                                        value={replicateVideoSettings.resolution}
+                                                        onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, resolution: e.target.value })}
+                                                        className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                                    >
+                                                        {selectedModel.resolutions.map(res => (
+                                                            <option key={res} value={res}>{res}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <div className="w-full bg-zinc-900/50 text-zinc-500 p-2 rounded border border-zinc-700/50 text-xs flex items-center justify-center opacity-50 cursor-not-allowed">
+                                                        Auto
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* FPS (for Wan model only) */}
+                                        {selectedModel?.fpsRange && (
+                                            <div>
+                                                <label className="text-[10px] text-zinc-500 block mb-1">FPS (Frames/Sec)</label>
+                                                <input
+                                                    type="number"
+                                                    min={selectedModel.fpsRange[0]}
+                                                    max={selectedModel.fpsRange[1]}
+                                                    value={replicateVideoSettings.fps || 16}
+                                                    onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, fps: parseInt(e.target.value) })}
+                                                    className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Frame Count (for Wan model only) */}
+                                        {selectedModel?.frameRange && (
+                                            <div>
+                                                <label className="text-[10px] text-zinc-500 block mb-1">Frame Count</label>
+                                                <input
+                                                    type="number"
+                                                    min={selectedModel.frameRange[0]}
+                                                    max={selectedModel.frameRange[1]}
+                                                    value={replicateVideoSettings.numFrames || 81}
+                                                    onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, numFrames: parseInt(e.target.value) })}
+                                                    className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Audio Generation Toggle (for Veo models) */}
+                                    {selectedModel?.supportsAudio && (
+                                        <div className="flex items-center justify-between p-2 bg-zinc-900 rounded-lg border border-zinc-700">
+                                            <label className="text-[10px] text-zinc-400">Generate Audio</label>
+                                            <button
+                                                onClick={() => setReplicateVideoSettings({
+                                                    ...replicateVideoSettings,
+                                                    generateAudio: !replicateVideoSettings.generateAudio
+                                                })}
+                                                className={`relative w-10 h-5 rounded-full transition ${replicateVideoSettings.generateAudio !== false ? 'bg-emerald-500' : 'bg-zinc-700'
+                                                    }`}
+                                            >
+                                                <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${replicateVideoSettings.generateAudio !== false ? 'translate-x-5' : 'translate-x-0'
+                                                    }`} />
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Negative Prompt */}
+                                    <div>
+                                        <label className="text-[10px] text-zinc-500 block mb-1">Negative Prompt (Optional)</label>
+                                        <textarea
+                                            value={replicateVideoSettings.negativePrompt || ''}
+                                            onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, negativePrompt: e.target.value })}
+                                            placeholder="Describe what you don't want to see..."
+                                            className="w-full bg-zinc-900 text-white p-2 text-xs rounded-lg border border-zinc-700 resize-none outline-none focus:border-emerald-500 h-16"
+                                        />
+                                    </div>
+
+                                    {/* Generate Button */}
+                                    <button
+                                        onClick={handleGenerateReplicateVideo}
+                                        disabled={isGeneratingReplicateVideo || (requiresImage && !videoFrames.start)}
+                                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 text-sm"
+                                    >
+                                        {isGeneratingReplicateVideo ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                Generating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FilmIcon className="w-4 h-4" />
+                                                Generate Video
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            );
+                        })()}
                     </div>
                 )}
             </div>
@@ -780,253 +1048,6 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
 
 
 
-                        {/* VIDEO GENERATION MODULE */}
-                        <div className="mt-3 border border-emerald-800 rounded-xl overflow-hidden bg-[#1e1e20]">
-                            <button onClick={() => setIsReplicateExpanded(!isReplicateExpanded)} className="w-full p-2 bg-zinc-800 hover:bg-zinc-700 transition flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <FilmIcon className="w-4 h-4 text-emerald-500" />
-                                    <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Video Generation</span>
-                                    <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 rounded ml-2">
-                                        {REPLICATE_MODELS.find(m => m.id === replicateVideoSettings.model)?.name || 'Multiple Models'}
-                                    </span>
-                                </div>
-                                {isReplicateExpanded ? <ChevronUpIcon className="w-3 h-3 text-zinc-500" /> : <ChevronDownIcon className="w-3 h-3 text-zinc-500" />}
-                            </button>
-
-                            {isReplicateExpanded && (() => {
-                                const selectedModel = REPLICATE_MODELS.find(m => m.id === replicateVideoSettings.model);
-                                const requiresImage = selectedModel?.requiresStartImage || selectedModel?.type === 'image-to-video';
-
-                                return (
-                                    <div className="p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
-                                        {/* Frame Uploads */}
-                                        <div className="flex gap-4 items-stretch h-32">
-                                            {/* Start Frame */}
-                                            <div className="w-1/4 relative group bg-zinc-900 rounded-lg border border-zinc-700 overflow-hidden flex flex-col">
-                                                <div className="text-[10px] text-zinc-500 uppercase font-bold p-1 text-center bg-zinc-950 flex items-center justify-center gap-1">
-                                                    Start Frame
-                                                    {requiresImage && <span className="text-red-400">*</span>}
-                                                </div>
-                                                <div className="flex-1 relative flex items-center justify-center">
-                                                    {videoFrames.start ? (
-                                                        <img src={videoFrames.start} alt="Start" className="absolute inset-0 w-full h-full object-cover" />
-                                                    ) : (
-                                                        <span className="text-[10px] text-zinc-600">{requiresImage ? 'Required' : 'Optional'}</span>
-                                                    )}
-                                                    <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition">
-                                                        <div className="bg-zinc-800 p-1.5 rounded-full border border-zinc-600">
-                                                            <PencilSquareIcon className="w-4 h-4 text-white" />
-                                                        </div>
-                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleVideoFrameUpload(e, 'start')} />
-                                                    </label>
-                                                </div>
-                                            </div>
-
-                                            {/* Motion Prompt */}
-                                            <div className="flex-1 flex flex-col relative">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <span className="text-[10px] text-zinc-500 uppercase font-bold">Motion Prompt</span>
-                                                    <button
-                                                        onClick={handleImprovePrompt}
-                                                        disabled={isImprovingPrompt}
-                                                        className="text-[9px] flex items-center gap-1 text-indigo-400 hover:text-indigo-300 disabled:opacity-50 transition"
-                                                    >
-                                                        {isImprovingPrompt ? (
-                                                            <div className="w-2 h-2 rounded-full border border-indigo-400 border-t-transparent animate-spin" />
-                                                        ) : (
-                                                            <SparklesIcon className="w-3 h-3" />
-                                                        )}
-                                                        {isImprovingPrompt ? 'Analyzing...' : 'Improve Prompt'}
-                                                    </button>
-                                                </div>
-                                                <textarea
-                                                    value={videoSettings.motionPrompt}
-                                                    onChange={(e) => setVideoSettings({ ...videoSettings, motionPrompt: e.target.value })}
-                                                    placeholder={prompt ? "Using main prompt (edit to override)..." : "Describe the camera motion or action..."}
-                                                    className="w-full h-full bg-zinc-900 text-white p-2 text-xs rounded-lg border border-zinc-700 resize-none outline-none focus:border-emerald-500"
-                                                />
-                                            </div>
-
-                                            {/* End Frame */}
-                                            <div className="w-1/4 relative group bg-zinc-900 rounded-lg border border-zinc-700 overflow-hidden flex flex-col">
-                                                <div className="text-[10px] text-zinc-500 uppercase font-bold p-1 text-center bg-zinc-950">End Frame</div>
-                                                <div className="flex-1 relative flex items-center justify-center">
-                                                    {videoFrames.end ? (
-                                                        <img src={videoFrames.end} alt="End" className="absolute inset-0 w-full h-full object-cover" />
-                                                    ) : (
-                                                        <span className="text-[10px] text-zinc-600">Optional</span>
-                                                    )}
-                                                    <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition">
-                                                        <div className="bg-zinc-800 p-1.5 rounded-full border border-zinc-600">
-                                                            <PencilSquareIcon className="w-4 h-4 text-white" />
-                                                        </div>
-                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleVideoFrameUpload(e, 'end')} />
-                                                    </label>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Model Selector */}
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] text-zinc-500 block mb-1">Video Model</label>
-                                            <select
-                                                value={replicateVideoSettings.model}
-                                                onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, model: e.target.value })}
-                                                className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none focus:border-emerald-500"
-                                            >
-                                                {REPLICATE_MODELS.map(m => (
-                                                    <option key={m.id} value={m.id}>{m.name} - {m.type}</option>
-                                                ))}
-                                            </select>
-                                            <p className="text-[9px] text-zinc-500 mt-1">
-                                                {selectedModel?.description}
-                                            </p>
-                                        </div>
-
-                                        {/* Dynamic Options Grid */}
-                                        <div className="grid grid-cols-2 gap-3">
-                                            {/* Aspect Ratio (or note if from input image) */}
-                                            <div>
-                                                <label className="text-[10px] text-zinc-500 block mb-1">Aspect Ratio</label>
-                                                {selectedModel?.aspectRatios ? (
-                                                    <select
-                                                        value={replicateVideoSettings.aspectRatio}
-                                                        onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, aspectRatio: e.target.value })}
-                                                        className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
-                                                    >
-                                                        {selectedModel.aspectRatios.map(ratio => (
-                                                            <option key={ratio} value={ratio}>{ratio}</option>
-                                                        ))}
-                                                    </select>
-                                                ) : (
-                                                    <div className="w-full bg-zinc-900/50 text-zinc-500 p-2 rounded border border-zinc-700/50 text-xs flex items-center justify-center opacity-50 cursor-not-allowed">
-                                                        From Input Image
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Duration (dynamic based on model) */}
-                                            {selectedModel?.durations && (
-                                                <div>
-                                                    <label className="text-[10px] text-zinc-500 block mb-1">Duration</label>
-                                                    <select
-                                                        value={replicateVideoSettings.duration}
-                                                        onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, duration: e.target.value })}
-                                                        className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
-                                                    >
-                                                        {selectedModel.durations.map(dur => (
-                                                            <option key={dur} value={dur}>{dur} seconds</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            )}
-
-
-
-                                            {/* Resolution */}
-                                            {true && (
-                                                <div>
-                                                    <label className="text-[10px] text-zinc-500 block mb-1">Resolution</label>
-                                                    {selectedModel?.resolutions ? (
-                                                        <select
-                                                            value={replicateVideoSettings.resolution}
-                                                            onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, resolution: e.target.value })}
-                                                            className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
-                                                        >
-                                                            {selectedModel.resolutions.map(res => (
-                                                                <option key={res} value={res}>{res}</option>
-                                                            ))}
-                                                        </select>
-                                                    ) : (
-                                                        <div className="w-full bg-zinc-900/50 text-zinc-500 p-2 rounded border border-zinc-700/50 text-xs flex items-center justify-center opacity-50 cursor-not-allowed">
-                                                            Auto
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            {/* FPS (for Wan model only) */}
-                                            {selectedModel?.fpsRange && (
-                                                <div>
-                                                    <label className="text-[10px] text-zinc-500 block mb-1">FPS (Frames/Sec)</label>
-                                                    <input
-                                                        type="number"
-                                                        min={selectedModel.fpsRange[0]}
-                                                        max={selectedModel.fpsRange[1]}
-                                                        value={replicateVideoSettings.fps || 16}
-                                                        onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, fps: parseInt(e.target.value) })}
-                                                        className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {/* Frame Count (for Wan model only) */}
-                                            {selectedModel?.frameRange && (
-                                                <div>
-                                                    <label className="text-[10px] text-zinc-500 block mb-1">Frame Count</label>
-                                                    <input
-                                                        type="number"
-                                                        min={selectedModel.frameRange[0]}
-                                                        max={selectedModel.frameRange[1]}
-                                                        value={replicateVideoSettings.numFrames || 81}
-                                                        onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, numFrames: parseInt(e.target.value) })}
-                                                        className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Audio Generation Toggle (for Veo models) */}
-                                        {selectedModel?.supportsAudio && (
-                                            <div className="flex items-center justify-between p-2 bg-zinc-900 rounded-lg border border-zinc-700">
-                                                <label className="text-[10px] text-zinc-400">Generate Audio</label>
-                                                <button
-                                                    onClick={() => setReplicateVideoSettings({
-                                                        ...replicateVideoSettings,
-                                                        generateAudio: !replicateVideoSettings.generateAudio
-                                                    })}
-                                                    className={`relative w-10 h-5 rounded-full transition ${replicateVideoSettings.generateAudio !== false ? 'bg-emerald-500' : 'bg-zinc-700'
-                                                        }`}
-                                                >
-                                                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${replicateVideoSettings.generateAudio !== false ? 'translate-x-5' : 'translate-x-0'
-                                                        }`} />
-                                                </button>
-                                            </div>
-                                        )}
-
-                                        {/* Negative Prompt */}
-                                        <div>
-                                            <label className="text-[10px] text-zinc-500 block mb-1">Negative Prompt (Optional)</label>
-                                            <textarea
-                                                value={replicateVideoSettings.negativePrompt || ''}
-                                                onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, negativePrompt: e.target.value })}
-                                                placeholder="Describe what you don't want to see..."
-                                                className="w-full bg-zinc-900 text-white p-2 text-xs rounded-lg border border-zinc-700 resize-none outline-none focus:border-emerald-500 h-16"
-                                            />
-                                        </div>
-
-                                        {/* Generate Button */}
-                                        <button
-                                            onClick={handleGenerateReplicateVideo}
-                                            disabled={isGeneratingReplicateVideo || (requiresImage && !videoFrames.start)}
-                                            className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 text-sm"
-                                        >
-                                            {isGeneratingReplicateVideo ? (
-                                                <>
-                                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                    Generating...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <FilmIcon className="w-4 h-4" />
-                                                    Generate Video
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                );
-                            })()}
-                        </div>
 
 
 

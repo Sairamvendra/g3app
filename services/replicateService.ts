@@ -452,11 +452,28 @@ Example: ["Panel 1 prompt...", "Panel 2 prompt...", "Panel 3 prompt..."]
     const data = await response.json();
     const text = data.result || '';
 
+    console.log('[Storyboard Analysis] Raw response:', text);
+
     try {
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed)) return parsed.map(String);
+      // Clean up markdown code blocks if present
+      let cleanText = text.trim();
+      if (cleanText.startsWith('```')) {
+        cleanText = cleanText.replace(/^```(json)?\n/, '').replace(/\n```$/, '');
+      }
+
+      const parsed = JSON.parse(cleanText);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map(String);
+      } else if (Array.isArray(parsed) && parsed.length === 0) {
+        console.warn('[Storyboard Analysis] Received empty array');
+        return [];
+      }
+
+      console.warn('[Storyboard Analysis] Parsed result is not an array:', parsed);
       return [];
     } catch (e) {
+      console.error('[Storyboard Analysis] JSON Parse Error:', e);
+      console.log('[Storyboard Analysis] Failed text content:', text);
       return text.split('\n').filter((line: string) => line.length > 10);
     }
   } catch (error: any) {
@@ -755,6 +772,9 @@ NEGATIVE PROMPT / EXCLUSIONS:
       imageInputs.push(char.imageBase64);
       // Add character-specific instruction to prompt
       input.prompt += `\n\n[CHARACTER REFERENCE]: Include "${char.name}" exactly as shown in reference image.`;
+      if (char.persona) {
+        input.prompt += ` Persona/Description: ${char.persona}`;
+      }
     });
   }
 
@@ -784,26 +804,38 @@ NEGATIVE PROMPT / EXCLUSIONS:
         prompt: input.prompt,
         aspect_ratio: input.aspect_ratio,
         image_size: input.resolution,
-        reference_image: input.image_input?.[0], // First reference image
+        // Send all reference images (characters + style)
+        image_input: input.image_input,
         model: 'google/nano-banana-pro',
         output_format: input.output_format,
       }),
     });
 
+
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      const errorText = await response.text();
+      console.error(`[Image Generation] Server error (${response.status}):`, errorText);
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        errorData = { error: `Server error: ${response.status} - ${errorText.substring(0, 100)}` };
+      }
       throw new Error(errorData.error || `Server error: ${response.status}`);
     }
 
     const data = await response.json();
 
     if (!data.success || !data.result) {
+      console.error('[Image Generation] API returned failure:', data);
       throw new Error(data.error || 'Failed to generate image');
     }
 
     return data.result;
   } catch (error: any) {
-    console.error('Image generation error:', error);
+    // Enhanced error logging
+    console.error('[Image Generation] Client-side exception:', error);
 
     if (error.message?.includes('Unauthorized') || error.message?.includes('401')) {
       throw new Error('Invalid Replicate API key. Please check your server configuration.');
@@ -813,6 +845,6 @@ NEGATIVE PROMPT / EXCLUSIONS:
       throw new Error('Insufficient Replicate credits. Please check your account.');
     }
 
-    throw new Error(`Image generation failed: ${error.message || 'Unknown error'}`);
+    throw new Error(error.message || 'Unknown error during image generation');
   }
 };

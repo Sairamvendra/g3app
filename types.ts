@@ -41,6 +41,7 @@ export interface RelightSettings {
 export interface CharacterReference {
   name: string;
   imageBase64: string;
+  persona?: string; // Added persona field
 }
 
 export interface VideoSettings {
@@ -85,7 +86,7 @@ export interface Character {
   imageBase64: string;
 }
 
-export type SidebarMode = 'none' | 'story' | 'characters' | 'relight' | 'settings';
+export type SidebarMode = 'none' | 'story' | 'characters' | 'relight' | 'settings' | 'video';
 
 export const DEFAULT_CAMERA_SETTINGS: CameraSettings = {
   rotation: 0,
