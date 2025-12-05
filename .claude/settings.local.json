@@ -2,7 +2,18 @@
   "permissions": {
     "allow": [
       "Bash(npm install)",
-      "Bash(node --version:*)"
+      "Bash(node --version:*)",
+      "Bash(git push:*)",
+      "Bash(npm run dev:all:*)",
+      "Bash(cat:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git restore:*)",
+      "Bash(npm install:*)",
+      "WebFetch(domain:replicate.com)",
+      "Bash(npm uninstall:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

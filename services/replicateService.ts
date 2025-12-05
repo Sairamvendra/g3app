@@ -735,6 +735,7 @@ NEGATIVE PROMPT / EXCLUSIONS:
     '2:3': '2:3',
     '5:4': '5:4',
     '4:5': '4:5',
+    'Auto': 'match_input_image',
   };
 
   const input: Record<string, any> = {

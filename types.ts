@@ -85,7 +85,7 @@ export interface Character {
   imageBase64: string;
 }
 
-export type SidebarMode = 'none' | 'story' | 'characters' | 'relight';
+export type SidebarMode = 'none' | 'story' | 'characters' | 'relight' | 'settings';
 
 export const DEFAULT_CAMERA_SETTINGS: CameraSettings = {
   rotation: 0,
@@ -128,20 +128,20 @@ export const LIGHTING_OPTIONS = [
 ];
 
 export const FRAMING_OPTIONS = [
-  'Close-Up (CU)', 
-  'Medium Shot (MS)', 
-  'Wide Shot (WS)', 
-  'Extreme Close-Up (ECU)', 
-  'Medium Close-Up (MCU)', 
+  'Close-Up (CU)',
+  'Medium Shot (MS)',
+  'Wide Shot (WS)',
+  'Extreme Close-Up (ECU)',
+  'Medium Close-Up (MCU)',
   'Establishing Shot'
 ];
 
 export const CAMERA_ANGLE_OPTIONS = [
-  'Eye Level', 
-  'Low Angle', 
-  'High Angle', 
-  'Dutch Angle', 
-  'Over-the-Shoulder (OTS)', 
+  'Eye Level',
+  'Low Angle',
+  'High Angle',
+  'Dutch Angle',
+  'Over-the-Shoulder (OTS)',
   'Point of View (POV)'
 ];
 
@@ -149,7 +149,7 @@ export const CAMERA_ANGLE_OPTIONS = [
 export const ANGLE_OPTIONS = Array.from(new Set([
   ...CAMERA_ANGLE_OPTIONS,
   ...FRAMING_OPTIONS,
-  'Aerial/Drone', 
+  'Aerial/Drone',
   'Macro'
 ]));
 
@@ -176,7 +176,7 @@ export const DI_WORKFLOW_OPTIONS = [
 
 // Video Generation Constants
 export const VIDEO_MODELS = [
-  { label: 'veo3', value: 'veo-3.1-generate-preview' }, 
+  { label: 'veo3', value: 'veo-3.1-generate-preview' },
   { label: 'veo3.1', value: 'veo-3.1-generate-preview' },
   { label: 'veo3 fast', value: 'veo-3.1-fast-generate-preview' },
   { label: 'veo3.1 fast', value: 'veo-3.1-fast-generate-preview' },

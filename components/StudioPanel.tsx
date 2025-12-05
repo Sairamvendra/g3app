@@ -2,1107 +2,1112 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AspectRatio, ImageSize, ImageSettings, GeneratedImage, DEFAULT_SETTINGS, LIGHTING_OPTIONS, ANGLE_OPTIONS, MOOD_OPTIONS, FRAMING_OPTIONS, CAMERA_ANGLE_OPTIONS, DI_WORKFLOW_OPTIONS, StoryFlowState, Character, SidebarMode, RelightLight, CharacterReference, VideoSettings, VIDEO_MODELS, VIDEO_DURATIONS, VIDEO_FRAMERATES, ReplicateVideoSettings, REPLICATE_VIDEO_MODELS } from '../types';
 import { generateImageWithReplicate, analyzeStoryboardFlowWithReplicate, generatePersonaPromptWithReplicate, improveVideoPromptWithReplicate, generateVideoWithReplicate, hasValidReplicateApiKey, REPLICATE_VIDEO_MODELS as REPLICATE_MODELS } from '../services/replicateService';
-import { ArrowDownTrayIcon, BoltIcon, PhotoIcon, CheckCircleIcon, XMarkIcon, PlusIcon, VideoCameraIcon, EyeIcon, LinkIcon, PaintBrushIcon, SparklesIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, UserGroupIcon, TrashIcon, CloudArrowDownIcon, LightBulbIcon, FilmIcon, ChevronUpIcon, ChevronDownIcon, PencilSquareIcon, PlayIcon, KeyIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, BoltIcon, PhotoIcon, CheckCircleIcon, XMarkIcon, PlusIcon, VideoCameraIcon, EyeIcon, LinkIcon, PaintBrushIcon, SparklesIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, UserGroupIcon, TrashIcon, CloudArrowDownIcon, LightBulbIcon, FilmIcon, ChevronUpIcon, ChevronDownIcon, PencilSquareIcon, PlayIcon, KeyIcon, ExclamationTriangleIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
 import { UserIcon } from '@heroicons/react/24/solid';
 import CameraControls from './OrbitCamera';
 import RelightPanel from './RelightPanel';
 
 interface StudioPanelProps {
-  initialPrompt: string;
+    initialPrompt: string;
 }
 
 const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
-  const [prompt, setPrompt] = useState(initialPrompt);
-  React.useEffect(() => {
-    if(initialPrompt) setPrompt(initialPrompt);
-  }, [initialPrompt]);
+    const [prompt, setPrompt] = useState(initialPrompt);
+    React.useEffect(() => {
+        if (initialPrompt) setPrompt(initialPrompt);
+    }, [initialPrompt]);
 
-  const [settings, setSettings] = useState<ImageSettings>(DEFAULT_SETTINGS);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
-  const [error, setError] = useState<string | null>(null);
-  const [isMergeMode, setIsMergeMode] = useState(false);
-  const [storyPromptSaveSuccess, setStoryPromptSaveSuccess] = useState(false);
-  const [activeSidebar, setActiveSidebar] = useState<SidebarMode>('none');
-  const [draggingLight, setDraggingLight] = useState<string | null>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
+    const [settings, setSettings] = useState<ImageSettings>(DEFAULT_SETTINGS);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+    const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
+    const [error, setError] = useState<string | null>(null);
+    const [isMergeMode, setIsMergeMode] = useState(false);
+    const [storyPromptSaveSuccess, setStoryPromptSaveSuccess] = useState(false);
+    const [activeSidebar, setActiveSidebar] = useState<SidebarMode>('none');
+    const [draggingLight, setDraggingLight] = useState<string | null>(null);
+    const previewRef = useRef<HTMLDivElement>(null);
 
-  // Video State
-  const [videoSettings, setVideoSettings] = useState<VideoSettings>({
-      model: VIDEO_MODELS[1].value, // Default to veo3.1 (HQ)
-      duration: '5',
-      frameRate: '18',
-      motionPrompt: ''
-  });
-  const [videoFrames, setVideoFrames] = useState<{start: string | null, end: string | null}>({start: null, end: null});
-  const [isVideoExpanded, setIsVideoExpanded] = useState(false);
-  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
-  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
-  const [isImprovingPrompt, setIsImprovingPrompt] = useState(false);
+    // Video State
+    const [videoSettings, setVideoSettings] = useState<VideoSettings>({
+        model: VIDEO_MODELS[1].value, // Default to veo3.1 (HQ)
+        duration: '5',
+        frameRate: '18',
+        motionPrompt: ''
+    });
+    const [videoFrames, setVideoFrames] = useState<{ start: string | null, end: string | null }>({ start: null, end: null });
+    const [isVideoExpanded, setIsVideoExpanded] = useState(false);
+    const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+    const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
+    const [isImprovingPrompt, setIsImprovingPrompt] = useState(false);
 
-  // Replicate Video State
-  const [replicateVideoSettings, setReplicateVideoSettings] = useState<ReplicateVideoSettings>({
-    model: REPLICATE_MODELS[0].id,
-    aspectRatio: '16:9',
-    duration: '5',
-    numFrames: 121,
-    inferenceSteps: 30,
-    guidanceScale: 4.5,
-    cfgScale: 0.5,
-    videoLength: '5s',
-    resolution: '720p',
-  });
-  const [isReplicateExpanded, setIsReplicateExpanded] = useState(false);
-  const [isGeneratingReplicateVideo, setIsGeneratingReplicateVideo] = useState(false);
-  const [generatedReplicateVideoUrl, setGeneratedReplicateVideoUrl] = useState<string | null>(null);
+    // Replicate Video State
+    const [replicateVideoSettings, setReplicateVideoSettings] = useState<ReplicateVideoSettings>({
+        model: REPLICATE_MODELS[0].id,
+        aspectRatio: '16:9',
+        duration: '5',
+        numFrames: 121,
+        inferenceSteps: 30,
+        guidanceScale: 4.5,
+        cfgScale: 0.5,
+        videoLength: '5s',
+        resolution: '720p',
+    });
+    const [isReplicateExpanded, setIsReplicateExpanded] = useState(false);
+    const [isGeneratingReplicateVideo, setIsGeneratingReplicateVideo] = useState(false);
+    const [generatedReplicateVideoUrl, setGeneratedReplicateVideoUrl] = useState<string | null>(null);
 
-  const [storyFlow, setStoryFlow] = useState<StoryFlowState>(() => {
-    let savedPrompt = '';
-    if (typeof window !== 'undefined') {
-        savedPrompt = localStorage.getItem('gemini_studio_story_prompt') || '';
-    }
-    return { storyboardImage: null, storyPrompt: savedPrompt, detectedPrompts: [], isAnalyzing: false };
-  });
+    const [storyFlow, setStoryFlow] = useState<StoryFlowState>(() => {
+        let savedPrompt = '';
+        if (typeof window !== 'undefined') {
+            savedPrompt = localStorage.getItem('gemini_studio_story_prompt') || '';
+        }
+        return { storyboardImage: null, storyPrompt: savedPrompt, detectedPrompts: [], isAnalyzing: false };
+    });
 
-  const [characters, setCharacters] = useState<Character[]>(() => {
-    if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('gemini_studio_characters');
-        try { return saved ? JSON.parse(saved) : []; } catch (e) { return []; }
-    }
-    return [];
-  });
-  
-  const [newCharacterImage, setNewCharacterImage] = useState<string | null>(null);
-  const [newCharacterName, setNewCharacterName] = useState('');
-  const [newCharacterPersona, setNewCharacterPersona] = useState('');
-  const [isGeneratingPersona, setIsGeneratingPersona] = useState(false);
+    const [characters, setCharacters] = useState<Character[]>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('gemini_studio_characters');
+            try { return saved ? JSON.parse(saved) : []; } catch (e) { return []; }
+        }
+        return [];
+    });
 
-  useEffect(() => {
-    localStorage.setItem('gemini_studio_characters', JSON.stringify(characters));
-  }, [characters]);
+    const [newCharacterImage, setNewCharacterImage] = useState<string | null>(null);
+    const [newCharacterName, setNewCharacterName] = useState('');
+    const [newCharacterPersona, setNewCharacterPersona] = useState('');
+    const [isGeneratingPersona, setIsGeneratingPersona] = useState(false);
 
-  // Load API key from server on mount
-  useEffect(() => {
-    const loadApiKey = async () => {
-      if (typeof window !== 'undefined') {
-        const storedReplicateKey = localStorage.getItem('replicate_api_key');
-        if (!storedReplicateKey) {
-          // Fetch API key from server
-          try {
-            const response = await fetch('http://localhost:3002/api/key/replicate');
-            const data = await response.json();
-            if (data.success && data.key) {
-              localStorage.setItem('replicate_api_key', data.key);
+    useEffect(() => {
+        localStorage.setItem('gemini_studio_characters', JSON.stringify(characters));
+    }, [characters]);
+
+    // Load API key from server on mount
+    useEffect(() => {
+        const loadApiKey = async () => {
+            if (typeof window !== 'undefined') {
+                const storedReplicateKey = localStorage.getItem('replicate_api_key');
+                if (!storedReplicateKey) {
+                    // Fetch API key from server
+                    try {
+                        const response = await fetch('http://localhost:3002/api/key/replicate');
+                        const data = await response.json();
+                        if (data.success && data.key) {
+                            localStorage.setItem('replicate_api_key', data.key);
+                        }
+                    } catch (error) {
+                        console.error('Failed to fetch API key from server:', error);
+                    }
+                }
             }
-          } catch (error) {
-            console.error('Failed to fetch API key from server:', error);
-          }
-        }
-      }
-    };
-    loadApiKey();
-  }, []);
-
-  const isFramingAllSelected = FRAMING_OPTIONS.every(opt => settings.cameraAngles.includes(opt));
-  const isAngleAllSelected = CAMERA_ANGLE_OPTIONS.every(opt => settings.cameraAngles.includes(opt));
-  const isPresetComboMode = isFramingAllSelected && isAngleAllSelected;
-
-  // Global Mouse Handlers for Dragging
-  useEffect(() => {
-      const handleGlobalMove = (e: MouseEvent) => {
-          if (!draggingLight || !previewRef.current) return;
-          const rect = previewRef.current.getBoundingClientRect();
-          let x = ((e.clientX - rect.left) / rect.width) * 100;
-          let y = ((e.clientY - rect.top) / rect.height) * 100;
-          
-          // Clamp values 0-100
-          x = Math.max(0, Math.min(100, x));
-          y = Math.max(0, Math.min(100, y));
-
-          setSettings(prev => ({
-              ...prev,
-              relight: {
-                  ...prev.relight,
-                  lights: {
-                      ...prev.relight.lights,
-                      [draggingLight]: {
-                          ...(prev.relight.lights as any)[draggingLight],
-                          x,
-                          y
-                      }
-                  }
-              }
-          }));
-      };
-
-      const handleGlobalUp = () => {
-          setDraggingLight(null);
-          document.body.style.cursor = 'default';
-      };
-
-      if (draggingLight) {
-          window.addEventListener('mousemove', handleGlobalMove);
-          window.addEventListener('mouseup', handleGlobalUp);
-          document.body.style.cursor = 'grabbing';
-      }
-
-      return () => {
-          window.removeEventListener('mousemove', handleGlobalMove);
-          window.removeEventListener('mouseup', handleGlobalUp);
-          document.body.style.cursor = 'default';
-      };
-  }, [draggingLight]);
-
-  const handleLightDragStart = (e: React.MouseEvent, lightKey: string) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!settings.relight.enabled) return;
-      setDraggingLight(lightKey);
-  };
-
-  const handleSaveStoryPrompt = () => {
-    localStorage.setItem('gemini_studio_story_prompt', storyFlow.storyPrompt);
-    setStoryPromptSaveSuccess(true);
-    setTimeout(() => setStoryPromptSaveSuccess(false), 2000);
-  };
-
-  const handleDownloadAll = async () => {
-    for (let i = 0; i < generatedImages.length; i++) {
-        const img = generatedImages[i];
-        const link = document.createElement('a');
-        link.href = img.url;
-        link.download = `gemini-studio-${img.angleUsed.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Date.now()}-${i + 1}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        await new Promise(resolve => setTimeout(resolve, 250));
-    }
-  };
-
-  const handleAnalyzeStoryFlow = async () => {
-    if (!storyFlow.storyboardImage) return;
-    setStoryFlow(prev => ({ ...prev, isAnalyzing: true, detectedPrompts: [] }));
-    try {
-        const systemInstruction = localStorage.getItem('gemini_architect_system_instruction') || '';
-        const prompts = await analyzeStoryboardFlowWithReplicate(storyFlow.storyboardImage, storyFlow.storyPrompt, systemInstruction);
-        setStoryFlow(prev => ({ ...prev, detectedPrompts: prompts }));
-    } catch (e) {
-        setError("Failed to analyze storyboard.");
-    } finally {
-        setStoryFlow(prev => ({ ...prev, isAnalyzing: false }));
-    }
-  };
-
-  const handleNewCharacterUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) {
-          const reader = new FileReader();
-          reader.onloadend = () => { if (reader.result) setNewCharacterImage(reader.result as string); };
-          reader.readAsDataURL(e.target.files[0]);
-      }
-  };
-
-  const handleAutoGeneratePersona = async () => {
-      if (!newCharacterImage || !newCharacterName) { setError("Please provide an image and name first."); return; }
-      setIsGeneratingPersona(true); setError(null);
-      try {
-          const persona = await generatePersonaPromptWithReplicate(newCharacterImage, newCharacterName);
-          setNewCharacterPersona(persona);
-      } catch (e) { setError("Failed to generate persona prompt."); } finally { setIsGeneratingPersona(false); }
-  };
-
-  const handleSaveCharacter = () => {
-      if (!newCharacterImage || !newCharacterName || !newCharacterPersona) { setError("Please fill in all character fields."); return; }
-      const newChar: Character = {
-          id: Date.now().toString(),
-          name: newCharacterName.trim().replace('@', ''),
-          personaPrompt: newCharacterPersona,
-          imageBase64: newCharacterImage
-      };
-      setCharacters(prev => [...prev, newChar]);
-      setNewCharacterImage(null); setNewCharacterName(''); setNewCharacterPersona('');
-  };
-
-  const handleDeleteCharacter = (id: string) => { setCharacters(prev => prev.filter(c => c.id !== id)); };
-
-  const handleDownloadVideo = async (videoUrl: string, filename: string) => {
-    try {
-      const response = await fetch(videoUrl);
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      console.error('Failed to download video:', error);
-      setError('Failed to download video. Please try again.');
-    }
-  };
-
-  const prepareGenerationPayload = (rawPrompt: string) => {
-      let finalPrompt = rawPrompt;
-      const injectedReferenceImages = [...settings.referenceImages];
-      const characterRefs: CharacterReference[] = [];
-
-      characters.forEach(char => {
-          const regex = new RegExp(`@${char.name}`, 'gi');
-          if (regex.test(finalPrompt)) {
-              finalPrompt = finalPrompt.replace(regex, char.name);
-              if (!characterRefs.find(c => c.name === char.name)) {
-                   characterRefs.push({ name: char.name, imageBase64: char.imageBase64 });
-              }
-          }
-      });
-      return { finalPrompt, injectedReferenceImages, characterRefs };
-  };
-
-  const handleGenerate = async () => {
-    if (!hasValidReplicateApiKey()) {
-        setError("Replicate API key is required. Please configure it in your environment.");
-        return;
-    }
-    setError(null);
-    setIsGenerating(true);
-    setGeneratedImages([]); 
-    setSelectedImageIndex(0);
-    setGeneratedVideoUrl(null);
-
-    const performGeneration = async (
-        panelPrompt: string, 
-        currentAngle: string, 
-        currentSettings: ImageSettings
-    ) => {
-        const { finalPrompt, injectedReferenceImages, characterRefs } = prepareGenerationPayload(panelPrompt);
-        const tempSettings = { 
-            ...currentSettings, 
-            referenceImages: injectedReferenceImages,
-            characterReferences: characterRefs
         };
-        const url = await generateImageWithReplicate(finalPrompt, tempSettings, currentAngle);
-        return { url, prompt: panelPrompt, settings: tempSettings, angleUsed: currentAngle } as GeneratedImage;
+        loadApiKey();
+    }, []);
+
+    const isFramingAllSelected = FRAMING_OPTIONS.every(opt => settings.cameraAngles.includes(opt));
+    const isAngleAllSelected = CAMERA_ANGLE_OPTIONS.every(opt => settings.cameraAngles.includes(opt));
+    const isPresetComboMode = isFramingAllSelected && isAngleAllSelected;
+
+    // Global Mouse Handlers for Dragging
+    useEffect(() => {
+        const handleGlobalMove = (e: MouseEvent) => {
+            if (!draggingLight || !previewRef.current) return;
+            const rect = previewRef.current.getBoundingClientRect();
+            let x = ((e.clientX - rect.left) / rect.width) * 100;
+            let y = ((e.clientY - rect.top) / rect.height) * 100;
+
+            // Clamp values 0-100
+            x = Math.max(0, Math.min(100, x));
+            y = Math.max(0, Math.min(100, y));
+
+            setSettings(prev => ({
+                ...prev,
+                relight: {
+                    ...prev.relight,
+                    lights: {
+                        ...prev.relight.lights,
+                        [draggingLight]: {
+                            ...(prev.relight.lights as any)[draggingLight],
+                            x,
+                            y
+                        }
+                    }
+                }
+            }));
+        };
+
+        const handleGlobalUp = () => {
+            setDraggingLight(null);
+            document.body.style.cursor = 'default';
+        };
+
+        if (draggingLight) {
+            window.addEventListener('mousemove', handleGlobalMove);
+            window.addEventListener('mouseup', handleGlobalUp);
+            document.body.style.cursor = 'grabbing';
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', handleGlobalMove);
+            window.removeEventListener('mouseup', handleGlobalUp);
+            document.body.style.cursor = 'default';
+        };
+    }, [draggingLight]);
+
+    const handleLightDragStart = (e: React.MouseEvent, lightKey: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!settings.relight.enabled) return;
+        setDraggingLight(lightKey);
     };
 
-    try {
-        let results: GeneratedImage[] = [];
+    const handleSaveStoryPrompt = () => {
+        localStorage.setItem('gemini_studio_story_prompt', storyFlow.storyPrompt);
+        setStoryPromptSaveSuccess(true);
+        setTimeout(() => setStoryPromptSaveSuccess(false), 2000);
+    };
 
-        if (activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0) {
-            const activeAngle = settings.cameraAngles.length > 0 ? settings.cameraAngles.join(' + ') : 'Cinematic Composition';
-            const promises = storyFlow.detectedPrompts.map((panelPrompt, idx) => 
-                performGeneration(panelPrompt, `Panel ${idx + 1}`, settings)
-            );
-            results = await Promise.all(promises);
-        } else {
-             if (!prompt) { setIsGenerating(false); return; }
-             if (settings.cameraAngles.length === 0) { setError("Please select at least one camera angle."); setIsGenerating(false); return; }
-
-             let anglesToGenerate: string[] = [];
-             const hasCustomCamera = settings.cameraControls.rotation !== 0 || settings.cameraControls.moveForward !== 0 || settings.cameraControls.verticalAngle !== 0 || settings.cameraControls.isWideAngle;
-
-             if (hasCustomCamera) anglesToGenerate = ['Custom Camera Settings'];
-             else if (isMergeMode) anglesToGenerate = [settings.cameraAngles.join(' + ')];
-             else if (isPresetComboMode) anglesToGenerate = ['Medium Shot (MS) + OTS', 'Close-Up (CU) + Eye Level', 'Wide Shot (WS) + Eye Level', 'Medium Shot (MS) + Eye Level', 'Close-Up (CU) + Low Angle', 'Wide Shot (WS) + High Angle'];
-             else anglesToGenerate = settings.cameraAngles;
-
-             const promises = anglesToGenerate.map(angle => performGeneration(prompt, angle, settings));
-             results = await Promise.all(promises);
+    const handleDownloadAll = async () => {
+        for (let i = 0; i < generatedImages.length; i++) {
+            const img = generatedImages[i];
+            const link = document.createElement('a');
+            link.href = img.url;
+            link.download = `gemini-studio-${img.angleUsed.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Date.now()}-${i + 1}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            await new Promise(resolve => setTimeout(resolve, 250));
         }
-        
-        setGeneratedImages(results);
+    };
 
-        // Auto-update video start/end frames
-        if (results.length >= 2) {
-            setVideoFrames({ start: results[results.length - 2].url, end: results[results.length - 1].url });
-        } else if (results.length === 1) {
-            // Shift current end to start, new image to end
-            setVideoFrames(prev => ({ start: prev.end || null, end: results[0].url }));
+    const handleAnalyzeStoryFlow = async () => {
+        if (!storyFlow.storyboardImage) return;
+        setStoryFlow(prev => ({ ...prev, isAnalyzing: true, detectedPrompts: [] }));
+        try {
+            const systemInstruction = localStorage.getItem('gemini_architect_system_instruction') || '';
+            const prompts = await analyzeStoryboardFlowWithReplicate(storyFlow.storyboardImage, storyFlow.storyPrompt, systemInstruction);
+            setStoryFlow(prev => ({ ...prev, detectedPrompts: prompts }));
+        } catch (e) {
+            setError("Failed to analyze storyboard.");
+        } finally {
+            setStoryFlow(prev => ({ ...prev, isAnalyzing: false }));
         }
+    };
 
-    } catch (err: any) {
-        if (err.message.includes('API key') || err.message.includes('400') || err.message.includes('403')) {
-            setError("Authentication failed. Please check your Replicate API key.");
-        } else {
-            setError(err.message || "Failed to generate images. Please try again.");
-        }
-    } finally { 
-        setIsGenerating(false); 
-    }
-  };
-
-  const handleImprovePrompt = async () => {
-      if (!hasValidReplicateApiKey()) {
-          setError("Replicate API key is required. Please configure it in your environment.");
-          return;
-      }
-      if (!videoSettings.motionPrompt && !videoFrames.start && !videoFrames.end && !prompt) {
-          setError("Please provide a prompt or images to improve.");
-          return;
-      }
-      setIsImprovingPrompt(true);
-      setError(null);
-      try {
-          const promptToImprove = videoSettings.motionPrompt || prompt || "";
-          const improved = await improveVideoPromptWithReplicate(
-              promptToImprove,
-              videoFrames.start,
-              videoFrames.end
-          );
-          setVideoSettings(prev => ({ ...prev, motionPrompt: improved }));
-      } catch (e: any) {
-          setError(e.message || "Failed to improve prompt. Please check your Replicate API key.");
-      } finally {
-          setIsImprovingPrompt(false);
-      }
-  };
-
-  // Gemini Veo video generation removed - using Replicate for all video generation
-
-  const handleVideoFrameUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'start' | 'end') => {
-      if (e.target.files && e.target.files[0]) {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-              if (reader.result) setVideoFrames(prev => ({ ...prev, [type]: reader.result as string }));
-          };
-          reader.readAsDataURL(e.target.files[0]);
-      }
-  };
-
-  const handleGenerateReplicateVideo = async () => {
-      if (!hasValidReplicateApiKey()) {
-          setError("Replicate API key is required. Please check your server configuration.");
-          return;
-      }
-      setError(null);
-      setIsGeneratingReplicateVideo(true);
-      setGeneratedReplicateVideoUrl(null);
-      try {
-          const { finalPrompt } = prepareGenerationPayload(prompt);
-          const videoPrompt = videoSettings.motionPrompt || finalPrompt;
-
-          if (!videoPrompt) throw new Error("A prompt is required for video generation.");
-
-          const url = await generateVideoWithReplicate(
-              replicateVideoSettings,
-              videoPrompt,
-              videoFrames.start,
-              videoFrames.end
-          );
-          setGeneratedReplicateVideoUrl(url);
-      } catch (err: any) {
-          if (err.message.includes('API key') || err.message.includes('Unauthorized')) {
-              setError("Replicate API Key Error: Please check your server configuration.");
-          } else {
-              setError(err.message);
-          }
-      } finally {
-          setIsGeneratingReplicateVideo(false);
-      }
-  };
-
-  const toggleAngle = (angle: string) => {
-    setSettings(prev => {
-        const current = prev.cameraAngles;
-        return current.includes(angle) ? { ...prev, cameraAngles: current.filter(a => a !== angle) } : { ...prev, cameraAngles: [...current, angle] };
-    });
-  };
-
-  const togglePreset = (presetOptions: string[]) => {
-    setSettings(prev => {
-        const current = prev.cameraAngles;
-        const allSelected = presetOptions.every(opt => current.includes(opt));
-        return allSelected ? { ...prev, cameraAngles: current.filter(a => !presetOptions.includes(a)) } : { ...prev, cameraAngles: [...current, ...presetOptions.filter(o => !current.includes(o))] };
-    });
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-        const files = Array.from(e.target.files) as File[];
-        files.slice(0, 4 - settings.referenceImages.length).forEach(file => {
+    const handleNewCharacterUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
             const reader = new FileReader();
-            reader.onloadend = () => { if (reader.result) setSettings(prev => ({ ...prev, referenceImages: [...prev.referenceImages, reader.result as string] })); };
-            reader.readAsDataURL(file);
+            reader.onloadend = () => { if (reader.result) setNewCharacterImage(reader.result as string); };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    };
+
+    const handleAutoGeneratePersona = async () => {
+        if (!newCharacterImage || !newCharacterName) { setError("Please provide an image and name first."); return; }
+        setIsGeneratingPersona(true); setError(null);
+        try {
+            const persona = await generatePersonaPromptWithReplicate(newCharacterImage, newCharacterName);
+            setNewCharacterPersona(persona);
+        } catch (e) { setError("Failed to generate persona prompt."); } finally { setIsGeneratingPersona(false); }
+    };
+
+    const handleSaveCharacter = () => {
+        if (!newCharacterImage || !newCharacterName || !newCharacterPersona) { setError("Please fill in all character fields."); return; }
+        const newChar: Character = {
+            id: Date.now().toString(),
+            name: newCharacterName.trim().replace('@', ''),
+            personaPrompt: newCharacterPersona,
+            imageBase64: newCharacterImage
+        };
+        setCharacters(prev => [...prev, newChar]);
+        setNewCharacterImage(null); setNewCharacterName(''); setNewCharacterPersona('');
+    };
+
+    const handleDeleteCharacter = (id: string) => { setCharacters(prev => prev.filter(c => c.id !== id)); };
+
+    const handleDownloadVideo = async (videoUrl: string, filename: string) => {
+        try {
+            const response = await fetch(videoUrl);
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error('Failed to download video:', error);
+            setError('Failed to download video. Please try again.');
+        }
+    };
+
+    const prepareGenerationPayload = (rawPrompt: string) => {
+        let finalPrompt = rawPrompt;
+        const injectedReferenceImages = [...settings.referenceImages];
+        const characterRefs: CharacterReference[] = [];
+
+        characters.forEach(char => {
+            const regex = new RegExp(`@${char.name}`, 'gi');
+            if (regex.test(finalPrompt)) {
+                finalPrompt = finalPrompt.replace(regex, char.name);
+                if (!characterRefs.find(c => c.name === char.name)) {
+                    characterRefs.push({ name: char.name, imageBase64: char.imageBase64 });
+                }
+            }
         });
-        e.target.value = '';
-    }
-  };
+        return { finalPrompt, injectedReferenceImages, characterRefs };
+    };
 
-  const handleStoryFlowUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) {
-          const reader = new FileReader();
-          reader.onloadend = () => { if (reader.result) setStoryFlow(prev => ({ ...prev, storyboardImage: reader.result as string, detectedPrompts: [] })); };
-          reader.readAsDataURL(e.target.files[0]);
-      }
-  };
+    const handleGenerate = async () => {
+        if (!hasValidReplicateApiKey()) {
+            setError("Replicate API key is required. Please configure it in your environment.");
+            return;
+        }
+        setError(null);
+        setIsGenerating(true);
+        setGeneratedImages([]);
+        setSelectedImageIndex(0);
+        setGeneratedVideoUrl(null);
 
-  const handleRemoveReferenceImage = (index: number) => { setSettings(prev => ({ ...prev, referenceImages: prev.referenceImages.filter((_, i) => i !== index) })); };
+        const performGeneration = async (
+            panelPrompt: string,
+            currentAngle: string,
+            currentSettings: ImageSettings
+        ) => {
+            const { finalPrompt, injectedReferenceImages, characterRefs } = prepareGenerationPayload(panelPrompt);
+            const tempSettings = {
+                ...currentSettings,
+                referenceImages: injectedReferenceImages,
+                characterReferences: characterRefs
+            };
+            const url = await generateImageWithReplicate(finalPrompt, tempSettings, currentAngle);
+            return { url, prompt: panelPrompt, settings: tempSettings, angleUsed: currentAngle } as GeneratedImage;
+        };
 
-  const handleUseLastRender = () => {
-    if (generatedImages.length === 0) {
-      setError("No generated images available. Generate an image first.");
-      return;
-    }
-    if (settings.referenceImages.length >= 4) {
-      setError("Maximum 4 reference images allowed. Remove one first.");
-      return;
-    }
-    const lastImage = generatedImages[generatedImages.length - 1];
-    setSettings(prev => ({ ...prev, referenceImages: [...prev.referenceImages, lastImage.url] }));
-  };
+        try {
+            let results: GeneratedImage[] = [];
 
-  const currentImage = generatedImages.length > 0 ? generatedImages[selectedImageIndex] : null;
-  const hasCustomCamera = settings.cameraControls.rotation !== 0 || settings.cameraControls.moveForward !== 0 || settings.cameraControls.verticalAngle !== 0 || settings.cameraControls.isWideAngle;
-  let generateButtonText = "Generate";
-  let count = 0;
+            if (activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0) {
+                const activeAngle = settings.cameraAngles.length > 0 ? settings.cameraAngles.join(' + ') : 'Cinematic Composition';
+                const promises = storyFlow.detectedPrompts.map((panelPrompt, idx) =>
+                    performGeneration(panelPrompt, `Panel ${idx + 1}`, settings)
+                );
+                results = await Promise.all(promises);
+            } else {
+                if (!prompt) { setIsGenerating(false); return; }
+                if (settings.cameraAngles.length === 0) { setError("Please select at least one camera angle."); setIsGenerating(false); return; }
 
-  if (activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0) { count = storyFlow.detectedPrompts.length; generateButtonText = `Generate (${count}) Storyboard Panels`; }
-  else if (hasCustomCamera) { count = 1; generateButtonText = "Generate with Custom Camera"; }
-  else if (isMergeMode) { count = 1; generateButtonText = "Generate (1) Combined Image"; }
-  else if (isPresetComboMode) { count = 6; generateButtonText = "Generate (6) Cinematic Combos"; }
-  else { count = settings.cameraAngles.length || 1; generateButtonText = `Generate (${count}) High-Fidelity Image${count > 1 ? 's' : ''}`; }
+                let anglesToGenerate: string[] = [];
+                const hasCustomCamera = settings.cameraControls.rotation !== 0 || settings.cameraControls.moveForward !== 0 || settings.cameraControls.verticalAngle !== 0 || settings.cameraControls.isWideAngle;
 
-  const toggleSidebar = (mode: SidebarMode) => { setActiveSidebar(activeSidebar === mode ? 'none' : mode); };
+                if (hasCustomCamera) anglesToGenerate = ['Custom Camera Settings'];
+                else if (isMergeMode) anglesToGenerate = [settings.cameraAngles.join(' + ')];
+                else if (isPresetComboMode) anglesToGenerate = ['Medium Shot (MS) + OTS', 'Close-Up (CU) + Eye Level', 'Wide Shot (WS) + Eye Level', 'Medium Shot (MS) + Eye Level', 'Close-Up (CU) + Low Angle', 'Wide Shot (WS) + High Angle'];
+                else anglesToGenerate = settings.cameraAngles;
 
-  const getClockPosition = (x: number, y: number) => {
-      const dx = x - 50;
-      const dy = y - 50;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance < 10) return "Center";
-      
-      const angleRad = Math.atan2(dy, dx);
-      const angleDeg = angleRad * (180 / Math.PI);
-      let clockVal = (angleDeg + 90) / 30;
-      if (clockVal < 0) clockVal += 12;
-      if (clockVal === 0) clockVal = 12;
-      return `${Math.round(clockVal) || 12} o'clock`;
-  };
+                const promises = anglesToGenerate.map(angle => performGeneration(prompt, angle, settings));
+                results = await Promise.all(promises);
+            }
 
-  const renderLightHandle = (key: string, label: string) => {
-      const lights = settings.relight.lights as any;
-      const light = lights[key] as RelightLight;
-      if (!light || !light.enabled) return null;
-      const gelColor = settings.relight.gels[light.colorIndex];
-      const isDragging = draggingLight === key;
-      const clockPos = getClockPosition(light.x, light.y);
-      
-      return (
-          <div 
-             key={key}
-             onMouseDown={(e) => handleLightDragStart(e, key)}
-             className={`absolute w-8 h-8 rounded-full shadow-xl cursor-grab active:cursor-grabbing z-[60] group transform -translate-x-1/2 -translate-y-1/2 transition-transform pointer-events-auto flex items-center justify-center ${isDragging ? 'scale-125' : 'hover:scale-110'}`}
-             style={{ 
-                 left: `${light.x}%`, 
-                 top: `${light.y}%`,
-                 backgroundColor: 'rgba(0,0,0,0.5)',
-                 border: `2px solid ${gelColor}`,
-                 boxShadow: `0 0 12px ${gelColor}80, inset 0 0 8px ${gelColor}40`
-             }}
-          >
-              <div className="w-2 h-2 rounded-full bg-white opacity-80" />
-              
-              {/* Tooltip */}
-              <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-black/90 text-white text-[9px] px-2 py-1.5 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none border border-white/10 z-50 shadow-xl flex flex-col items-center gap-0.5">
-                  <span className="font-bold">{label}</span>
-                  <span className="text-zinc-300">{clockPos} (Off-Camera)</span>
-                  <div className="text-[8px] text-zinc-500 font-mono mt-0.5">
-                      Int: {light.intensity}%
-                  </div>
-              </div>
-          </div>
-      );
-  };
+            setGeneratedImages(results);
 
-  const renderLightBeam = (key: string) => {
-      const lights = settings.relight.lights as any;
-      const light = lights[key] as RelightLight;
-      if (!light || !light.enabled) return null;
+            // Auto-update video start/end frames
+            if (results.length >= 2) {
+                setVideoFrames({ start: results[results.length - 2].url, end: results[results.length - 1].url });
+            } else if (results.length === 1) {
+                // Shift current end to start, new image to end
+                setVideoFrames(prev => ({ start: prev.end || null, end: results[0].url }));
+            }
 
-      const gelColor = settings.relight.gels[light.colorIndex];
-      
-      const centerX = 50;
-      const centerY = 50;
-      
-      const dx = centerX - light.x;
-      const dy = centerY - light.y;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      
-      const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-      
-      const opacity = Math.max(0.1, light.intensity / 100);
-      const blurAmount = 2 + (settings.relight.modifiers.diffuser / 6);
-      const spread = 15 + (settings.relight.modifiers.diffuser / 4);
+        } catch (err: any) {
+            if (err.message.includes('API key') || err.message.includes('400') || err.message.includes('403')) {
+                setError("Authentication failed. Please check your Replicate API key.");
+            } else {
+                setError(err.message || "Failed to generate images. Please try again.");
+            }
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
-      return (
-        <g key={`beam-${key}`} style={{ mixBlendMode: 'screen' }}>
-            <defs>
-                <filter id={`blur-${key}`}>
-                    <feGaussianBlur in="SourceGraphic" stdDeviation={blurAmount} />
-                </filter>
-                <linearGradient id={`grad-${key}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor={gelColor} stopOpacity={opacity * 0.6} />
-                    <stop offset="100%" stopColor={gelColor} stopOpacity="0" />
-                </linearGradient>
-            </defs>
-             <path
-                d={`M 0 0 L ${dist} -${spread/2} L ${dist} ${spread/2} Z`}
-                fill={`url(#grad-${key})`}
-                filter={`url(#blur-${key})`}
-                transform={`translate(${light.x}, ${light.y}) rotate(${angle})`}
-                style={{ pointerEvents: 'none' }}
-            />
-        </g>
-      );
-  };
+    const handleImprovePrompt = async () => {
+        if (!hasValidReplicateApiKey()) {
+            setError("Replicate API key is required. Please configure it in your environment.");
+            return;
+        }
+        if (!videoSettings.motionPrompt && !videoFrames.start && !videoFrames.end && !prompt) {
+            setError("Please provide a prompt or images to improve.");
+            return;
+        }
+        setIsImprovingPrompt(true);
+        setError(null);
+        try {
+            const promptToImprove = videoSettings.motionPrompt || prompt || "";
+            const improved = await improveVideoPromptWithReplicate(
+                promptToImprove,
+                videoFrames.start,
+                videoFrames.end
+            );
+            setVideoSettings(prev => ({ ...prev, motionPrompt: improved }));
+        } catch (e: any) {
+            setError(e.message || "Failed to improve prompt. Please check your Replicate API key.");
+        } finally {
+            setIsImprovingPrompt(false);
+        }
+    };
 
-  return (
-    <div className="flex flex-row h-full bg-zinc-950 relative w-full overflow-hidden">
-      <div className="w-10 flex-none z-30 bg-zinc-950 border-r border-zinc-800 flex flex-col items-center py-4 gap-4 h-full">
-           <button onClick={() => toggleSidebar('story')} className={`p-2 rounded-lg transition-all relative group ${activeSidebar === 'story' ? 'text-indigo-400 bg-zinc-800' : 'text-zinc-500 hover:text-indigo-300'}`} title="Story Flow">
-               <div className="[writing-mode:vertical-rl] rotate-180 font-bold text-[10px] tracking-widest uppercase whitespace-nowrap h-24 flex items-center justify-center">Story Flow</div>
-               {activeSidebar === 'story' && <div className="absolute right-0 top-2 bottom-2 w-0.5 bg-indigo-500 rounded-l"></div>}
-           </button>
-           <button onClick={() => toggleSidebar('characters')} className={`p-2 rounded-lg transition-all relative group ${activeSidebar === 'characters' ? 'text-pink-400 bg-zinc-800' : 'text-zinc-500 hover:text-pink-300'}`} title="Characters">
-               <div className="[writing-mode:vertical-rl] rotate-180 font-bold text-[10px] tracking-widest uppercase whitespace-nowrap h-24 flex items-center justify-center">Characters</div>
-               {activeSidebar === 'characters' && <div className="absolute right-0 top-2 bottom-2 w-0.5 bg-pink-500 rounded-l"></div>}
-           </button>
-           <button onClick={() => toggleSidebar('relight')} className={`p-2 rounded-lg transition-all relative group ${activeSidebar === 'relight' ? 'text-amber-400 bg-zinc-800' : 'text-zinc-500 hover:text-amber-300'}`} title="Relight Studio">
-               <div className="[writing-mode:vertical-rl] rotate-180 font-bold text-[10px] tracking-widest uppercase whitespace-nowrap h-24 flex items-center justify-center">Relight</div>
-               {activeSidebar === 'relight' && <div className="absolute right-0 top-2 bottom-2 w-0.5 bg-amber-500 rounded-l"></div>}
-           </button>
-      </div>
+    // Gemini Veo video generation removed - using Replicate for all video generation
 
-      <div className={`flex-none bg-zinc-900 border-r border-zinc-800 transition-all duration-300 ease-in-out flex flex-col overflow-hidden ${activeSidebar !== 'none' ? 'w-80 shadow-2xl opacity-100' : 'w-0 opacity-0 border-none'}`}>
-          {activeSidebar === 'story' && (
-              <div className="flex-1 p-6 overflow-y-auto space-y-6 pb-24 scrollbar-hide min-w-0">
-                  <div className="flex items-center gap-3 mb-2"><SparklesIcon className="w-6 h-6 text-indigo-400" /><h3 className="font-bold text-white text-base">Story Flow</h3></div>
-                  <div className="space-y-3">
-                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">1. Upload Page</label>
-                      <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-zinc-700 hover:border-indigo-500/50 hover:bg-zinc-800/50 transition relative flex flex-col items-center justify-center text-zinc-500 group overflow-hidden bg-zinc-800/20">
-                          {storyFlow.storyboardImage ? (
-                              <><img src={storyFlow.storyboardImage} alt="Board" className="absolute inset-0 w-full h-full object-contain bg-black/50" /><button onClick={() => setStoryFlow(prev => ({ ...prev, storyboardImage: null, detectedPrompts: [] }))} className="absolute top-2 right-2 bg-black/80 text-white p-1.5 rounded-full hover:bg-red-500/80 z-10 transition"><XMarkIcon className="w-4 h-4" /></button></>
-                          ) : (
-                              <><PlusIcon className="w-8 h-8 mb-2 group-hover:scale-110 transition" /><span className="text-xs text-center px-4 font-medium">Click to upload Storyboard Page</span><input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleStoryFlowUpload} /></>
-                          )}
-                      </div>
-                  </div>
-                  <div className="space-y-3">
-                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">2. Story Prompt</label>
-                      <textarea value={storyFlow.storyPrompt} onChange={(e) => setStoryFlow(prev => ({ ...prev, storyPrompt: e.target.value }))} className="w-full bg-zinc-800 text-zinc-200 text-sm p-4 rounded-xl border border-zinc-700 outline-none focus:border-indigo-500 min-h-[100px] resize-none" placeholder="Briefly describe the scene flow..." />
-                      <div className="flex justify-end"><button onClick={handleSaveStoryPrompt} className={`text-xs px-4 py-2 rounded-lg transition-all flex items-center gap-2 font-medium ${storyPromptSaveSuccess ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700'}`}>{storyPromptSaveSuccess ? <CheckCircleIcon className="w-3.5 h-3.5" /> : null}{storyPromptSaveSuccess ? 'Saved' : 'Save Prompt'}</button></div>
-                  </div>
-                  <button onClick={handleAnalyzeStoryFlow} disabled={!storyFlow.storyboardImage || storyFlow.isAnalyzing} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20">{storyFlow.isAnalyzing ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <BoltIcon className="w-5 h-5" />}Analyze Board</button>
-                  {storyFlow.detectedPrompts.length > 0 && <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4"><div className="flex items-center gap-2 text-green-400 text-sm font-bold mb-2"><CheckCircleIcon className="w-5 h-5" />{storyFlow.detectedPrompts.length} Panels Identified</div><p className="text-xs text-zinc-400 leading-relaxed">Analysis complete. Close this panel and click the main <strong className="text-white">Generate</strong> button.</p></div>}
-              </div>
-          )}
-          {activeSidebar === 'characters' && (
-              <div className="flex-1 p-6 overflow-y-auto space-y-6 pb-24 scrollbar-hide min-w-0">
-                   <div className="flex items-center gap-3 mb-2"><UserGroupIcon className="w-6 h-6 text-pink-400" /><h3 className="font-bold text-white text-base">Characters</h3></div>
-                   <div className="bg-zinc-800/50 rounded-xl p-4 border border-zinc-700 space-y-4">
-                      <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Create Character</div>
-                      <div className="flex gap-4">
-                          <label className="w-20 h-20 shrink-0 rounded-lg bg-zinc-900 border border-dashed border-zinc-600 hover:border-pink-500 cursor-pointer flex items-center justify-center overflow-hidden transition group">
-                               {newCharacterImage ? <img src={newCharacterImage} className="w-full h-full object-cover" alt="New Char" /> : <PlusIcon className="w-6 h-6 text-zinc-500 group-hover:scale-110 transition" />}
-                               <input type="file" accept="image/*" className="hidden" onChange={handleNewCharacterUpload} />
-                          </label>
-                          <div className="flex-1 space-y-3">
-                               <input type="text" placeholder="Name (e.g. Vani)" value={newCharacterName} onChange={e => setNewCharacterName(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-sm text-white focus:border-pink-500 outline-none" />
-                               <button onClick={handleAutoGeneratePersona} disabled={isGeneratingPersona || !newCharacterImage} className="w-full bg-zinc-700 hover:bg-zinc-600 text-xs py-2 rounded-lg text-zinc-300 flex items-center justify-center gap-1.5 disabled:opacity-50 transition">{isGeneratingPersona ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <SparklesIcon className="w-3.5 h-3.5" />}Auto-Gen Persona</button>
-                          </div>
-                      </div>
-                      <textarea value={newCharacterPersona} onChange={e => setNewCharacterPersona(e.target.value)} placeholder="Persona Prompt (NAME|trait|trait...)" className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-xs text-zinc-300 focus:border-pink-500 outline-none min-h-[80px]" />
-                      <button onClick={handleSaveCharacter} className="w-full bg-pink-600 hover:bg-pink-500 text-white text-sm py-2.5 rounded-lg font-bold shadow-lg shadow-pink-500/20 transition">Save Character</button>
-                  </div>
-                  <div className="space-y-4">
-                       <div className="text-xs font-bold text-zinc-500 uppercase mt-6 mb-3 tracking-wider">Saved Characters ({characters.length})</div>
-                       {characters.map(char => (
-                           <div key={char.id} className="bg-zinc-800 rounded-xl p-4 flex gap-4 group relative border border-transparent hover:border-zinc-700 transition-all hover:bg-zinc-750">
-                               <img src={char.imageBase64} alt={char.name} className="w-16 h-16 rounded-lg object-cover bg-black flex-shrink-0" />
-                               <div className="flex-1 min-w-0 flex flex-col justify-center"><div className="text-sm font-bold text-white truncate">@{char.name}</div><div className="text-[10px] text-zinc-400 line-clamp-3 leading-tight mt-1">{char.personaPrompt}</div></div>
-                               <button onClick={() => handleDeleteCharacter(char.id)} className="absolute top-2 right-2 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition bg-zinc-900/80 p-1 rounded-full backdrop-blur-sm"><TrashIcon className="w-3.5 h-3.5" /></button>
-                           </div>
-                       ))}
-                  </div>
-              </div>
-          )}
-          {activeSidebar === 'relight' && (
-              <div className="flex-1 p-6 overflow-hidden flex flex-col min-w-0 h-full">
-                  <RelightPanel settings={settings.relight} onChange={(newRelight) => setSettings({...settings, relight: newRelight})} />
-                  <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[10px] text-amber-500 flex gap-2 leading-relaxed"><LightBulbIcon className="w-5 h-5 shrink-0" /><div><strong>Pro Tip:</strong> Drag the lights on the canvas to position them. The beam shape previews the spread and softness.</div></div>
-              </div>
-          )}
-      </div>
+    const handleVideoFrameUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'start' | 'end') => {
+        if (e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (reader.result) setVideoFrames(prev => ({ ...prev, [type]: reader.result as string }));
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    };
 
-      <div className="flex-1 flex flex-col h-full min-w-0 transition-all duration-300">
-          <div className="p-4 border-b border-zinc-800 bg-zinc-950 flex-none sticky top-0 z-10">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                    <PhotoIcon className="w-5 h-5 text-green-400" />
-                    <h2 className="text-lg font-bold text-white">Visual Studio</h2>
-                    <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20 ml-2">PRO</span>
+    const handleGenerateReplicateVideo = async () => {
+        if (!hasValidReplicateApiKey()) {
+            setError("Replicate API key is required. Please check your server configuration.");
+            return;
+        }
+        setError(null);
+        setIsGeneratingReplicateVideo(true);
+        setGeneratedReplicateVideoUrl(null);
+        try {
+            const { finalPrompt } = prepareGenerationPayload(prompt);
+            const videoPrompt = videoSettings.motionPrompt || finalPrompt;
+
+            if (!videoPrompt) throw new Error("A prompt is required for video generation.");
+
+            const url = await generateVideoWithReplicate(
+                replicateVideoSettings,
+                videoPrompt,
+                videoFrames.start,
+                videoFrames.end
+            );
+            setGeneratedReplicateVideoUrl(url);
+        } catch (err: any) {
+            if (err.message.includes('API key') || err.message.includes('Unauthorized')) {
+                setError("Replicate API Key Error: Please check your server configuration.");
+            } else {
+                setError(err.message);
+            }
+        } finally {
+            setIsGeneratingReplicateVideo(false);
+        }
+    };
+
+    const toggleAngle = (angle: string) => {
+        setSettings(prev => {
+            const current = prev.cameraAngles;
+            return current.includes(angle) ? { ...prev, cameraAngles: current.filter(a => a !== angle) } : { ...prev, cameraAngles: [...current, angle] };
+        });
+    };
+
+    const togglePreset = (presetOptions: string[]) => {
+        setSettings(prev => {
+            const current = prev.cameraAngles;
+            const allSelected = presetOptions.every(opt => current.includes(opt));
+            return allSelected ? { ...prev, cameraAngles: current.filter(a => !presetOptions.includes(a)) } : { ...prev, cameraAngles: [...current, ...presetOptions.filter(o => !current.includes(o))] };
+        });
+    };
+
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const files = Array.from(e.target.files) as File[];
+            files.slice(0, 4 - settings.referenceImages.length).forEach(file => {
+                const reader = new FileReader();
+                reader.onloadend = () => { if (reader.result) setSettings(prev => ({ ...prev, referenceImages: [...prev.referenceImages, reader.result as string] })); };
+                reader.readAsDataURL(file);
+            });
+            e.target.value = '';
+        }
+    };
+
+    const handleStoryFlowUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onloadend = () => { if (reader.result) setStoryFlow(prev => ({ ...prev, storyboardImage: reader.result as string, detectedPrompts: [] })); };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    };
+
+    const handleRemoveReferenceImage = (index: number) => { setSettings(prev => ({ ...prev, referenceImages: prev.referenceImages.filter((_, i) => i !== index) })); };
+
+    const handleUseLastRender = () => {
+        if (generatedImages.length === 0) {
+            setError("No generated images available. Generate an image first.");
+            return;
+        }
+        if (settings.referenceImages.length >= 4) {
+            setError("Maximum 4 reference images allowed. Remove one first.");
+            return;
+        }
+        const lastImage = generatedImages[generatedImages.length - 1];
+        setSettings(prev => ({ ...prev, referenceImages: [...prev.referenceImages, lastImage.url] }));
+    };
+
+    const currentImage = generatedImages.length > 0 ? generatedImages[selectedImageIndex] : null;
+    const hasCustomCamera = settings.cameraControls.rotation !== 0 || settings.cameraControls.moveForward !== 0 || settings.cameraControls.verticalAngle !== 0 || settings.cameraControls.isWideAngle;
+    let generateButtonText = "Generate";
+    let count = 0;
+
+    if (activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0) { count = storyFlow.detectedPrompts.length; generateButtonText = `Generate (${count}) Storyboard Panels`; }
+    else if (hasCustomCamera) { count = 1; generateButtonText = "Generate with Custom Camera"; }
+    else if (isMergeMode) { count = 1; generateButtonText = "Generate (1) Combined Image"; }
+    else if (isPresetComboMode) { count = 6; generateButtonText = "Generate (6) Cinematic Combos"; }
+    else { count = settings.cameraAngles.length || 1; generateButtonText = `Generate (${count}) High-Fidelity Image${count > 1 ? 's' : ''}`; }
+
+    const toggleSidebar = (mode: SidebarMode) => { setActiveSidebar(activeSidebar === mode ? 'none' : mode); };
+
+    const getClockPosition = (x: number, y: number) => {
+        const dx = x - 50;
+        const dy = y - 50;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < 10) return "Center";
+
+        const angleRad = Math.atan2(dy, dx);
+        const angleDeg = angleRad * (180 / Math.PI);
+        let clockVal = (angleDeg + 90) / 30;
+        if (clockVal < 0) clockVal += 12;
+        if (clockVal === 0) clockVal = 12;
+        return `${Math.round(clockVal) || 12} o'clock`;
+    };
+
+    const renderLightHandle = (key: string, label: string) => {
+        const lights = settings.relight.lights as any;
+        const light = lights[key] as RelightLight;
+        if (!light || !light.enabled) return null;
+        const gelColor = settings.relight.gels[light.colorIndex];
+        const isDragging = draggingLight === key;
+        const clockPos = getClockPosition(light.x, light.y);
+
+        return (
+            <div
+                key={key}
+                onMouseDown={(e) => handleLightDragStart(e, key)}
+                className={`absolute w-8 h-8 rounded-full shadow-xl cursor-grab active:cursor-grabbing z-[60] group transform -translate-x-1/2 -translate-y-1/2 transition-transform pointer-events-auto flex items-center justify-center ${isDragging ? 'scale-125' : 'hover:scale-110'}`}
+                style={{
+                    left: `${light.x}%`,
+                    top: `${light.y}%`,
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    border: `2px solid ${gelColor}`,
+                    boxShadow: `0 0 12px ${gelColor}80, inset 0 0 8px ${gelColor}40`
+                }}
+            >
+                <div className="w-2 h-2 rounded-full bg-white opacity-80" />
+
+                {/* Tooltip */}
+                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-black/90 text-white text-[9px] px-2 py-1.5 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none border border-white/10 z-50 shadow-xl flex flex-col items-center gap-0.5">
+                    <span className="font-bold">{label}</span>
+                    <span className="text-zinc-300">{clockPos} (Off-Camera)</span>
+                    <div className="text-[8px] text-zinc-500 font-mono mt-0.5">
+                        Int: {light.intensity}%
+                    </div>
                 </div>
             </div>
-          </div>
+        );
+    };
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            <div className="w-full aspect-video bg-zinc-900 rounded-2xl border-2 border-dashed border-zinc-800 flex flex-col items-center justify-center relative overflow-hidden group select-none shadow-2xl">
-                <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden bg-[#09090b]">
-                    {isGenerating || isGeneratingVideo || isGeneratingReplicateVideo ? (
-                        <div className="flex flex-col items-center justify-center space-y-4">
-                            <div className="w-16 h-16 border-4 border-zinc-800 border-t-indigo-500 rounded-full animate-spin"></div>
-                            <p className="text-zinc-400 text-sm font-medium animate-pulse">
-                                {isGeneratingVideo ? 'Synthesizing Veo Video (This may take a minute)...' :
-                                 isGeneratingReplicateVideo ? 'Generating Replicate Video (This may take a minute)...' :
-                                 'Rendering Scene...'}
-                            </p>
-                        </div>
-                    ) : generatedVideoUrl ? (
-                         <div className="relative w-full h-full">
-                             <video
-                                src={generatedVideoUrl}
-                                controls
-                                className="w-full h-full object-contain"
-                                autoPlay
-                                loop
-                             />
-                             <button onClick={() => setGeneratedVideoUrl(null)} className="absolute top-4 right-4 bg-black/80 p-2 rounded-full text-white hover:bg-red-500 transition"><XMarkIcon className="w-4 h-4" /></button>
-                             <div className="absolute bottom-4 left-4 bg-black/80 px-3 py-1 rounded-full text-xs text-emerald-400 font-bold">Veo 3.1</div>
-                         </div>
-                    ) : generatedReplicateVideoUrl ? (
-                         <div className="relative w-full h-full">
-                             <video
-                                src={generatedReplicateVideoUrl}
-                                controls
-                                className="w-full h-full object-contain"
-                                autoPlay
-                                loop
-                             />
-                             <button onClick={() => setGeneratedReplicateVideoUrl(null)} className="absolute top-4 right-4 bg-black/80 p-2 rounded-full text-white hover:bg-red-500 transition"><XMarkIcon className="w-4 h-4" /></button>
-                             <div className="absolute bottom-4 left-4 bg-black/80 px-3 py-1 rounded-full text-xs text-purple-400 font-bold">
-                                {REPLICATE_MODELS.find(m => m.id === replicateVideoSettings.model)?.name || 'Replicate'}
-                             </div>
-                         </div>
-                    ) : currentImage ? (
-                        <img src={currentImage.url} alt="Generated" className="w-full h-full object-contain" draggable={false} />
-                    ) : (
-                        <div className="relative w-full h-full flex items-center justify-center bg-zinc-950 perspective-[1000px] overflow-hidden group">
-                            {/* Schematic Stage Grid */}
-                            <div className="absolute w-[200%] h-[200%] opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px', transform: 'rotateX(60deg) translateY(-20%) translateZ(-100px)', transformOrigin: 'center 40%' }} />
-                            
-                            {/* Schematic Subject */}
-                            <div className="relative z-10 flex flex-col items-center justify-center transition duration-500">
-                                 <UserIcon className="w-32 h-32 text-zinc-700 drop-shadow-2xl" />
-                                 <div className="w-24 h-4 bg-black/50 blur-lg rounded-[100%] mt-[-10px]"></div>
-                                 <p className="mt-4 text-xs font-mono text-zinc-600 uppercase tracking-widest">Subject</p>
+    const renderLightBeam = (key: string) => {
+        const lights = settings.relight.lights as any;
+        const light = lights[key] as RelightLight;
+        if (!light || !light.enabled) return null;
+
+        const gelColor = settings.relight.gels[light.colorIndex];
+
+        const centerX = 50;
+        const centerY = 50;
+
+        const dx = centerX - light.x;
+        const dy = centerY - light.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+
+        const opacity = Math.max(0.1, light.intensity / 100);
+        const blurAmount = 2 + (settings.relight.modifiers.diffuser / 6);
+        const spread = 15 + (settings.relight.modifiers.diffuser / 4);
+
+        return (
+            <g key={`beam-${key}`} style={{ mixBlendMode: 'screen' }}>
+                <defs>
+                    <filter id={`blur-${key}`}>
+                        <feGaussianBlur in="SourceGraphic" stdDeviation={blurAmount} />
+                    </filter>
+                    <linearGradient id={`grad-${key}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor={gelColor} stopOpacity={opacity * 0.6} />
+                        <stop offset="100%" stopColor={gelColor} stopOpacity="0" />
+                    </linearGradient>
+                </defs>
+                <path
+                    d={`M 0 0 L ${dist} -${spread / 2} L ${dist} ${spread / 2} Z`}
+                    fill={`url(#grad-${key})`}
+                    filter={`url(#blur-${key})`}
+                    transform={`translate(${light.x}, ${light.y}) rotate(${angle})`}
+                    style={{ pointerEvents: 'none' }}
+                />
+            </g>
+        );
+    };
+
+    return (
+        <div className="flex flex-row h-full bg-zinc-950 relative w-full overflow-hidden">
+            <div className="w-10 flex-none z-30 bg-zinc-950 border-r border-zinc-800 flex flex-col items-center py-2 gap-2 h-full">
+                <button onClick={() => toggleSidebar('story')} className={`p-1 rounded-lg transition-all relative group ${activeSidebar === 'story' ? 'text-indigo-400 bg-zinc-800' : 'text-zinc-500 hover:text-indigo-300'}`} title="Story Flow">
+                    <div className="[writing-mode:vertical-rl] rotate-180 font-bold text-[10px] tracking-widest uppercase whitespace-nowrap h-24 flex items-center justify-center">Story Flow</div>
+                    {activeSidebar === 'story' && <div className="absolute right-0 top-2 bottom-2 w-0.5 bg-indigo-500 rounded-l"></div>}
+                </button>
+                <button onClick={() => toggleSidebar('characters')} className={`p-1 rounded-lg transition-all relative group ${activeSidebar === 'characters' ? 'text-pink-400 bg-zinc-800' : 'text-zinc-500 hover:text-pink-300'}`} title="Characters">
+                    <div className="[writing-mode:vertical-rl] rotate-180 font-bold text-[10px] tracking-widest uppercase whitespace-nowrap h-24 flex items-center justify-center">Characters</div>
+                    {activeSidebar === 'characters' && <div className="absolute right-0 top-2 bottom-2 w-0.5 bg-pink-500 rounded-l"></div>}
+                </button>
+                <button onClick={() => toggleSidebar('relight')} className={`p-1 rounded-lg transition-all relative group ${activeSidebar === 'relight' ? 'text-amber-400 bg-zinc-800' : 'text-zinc-500 hover:text-amber-300'}`} title="Relight Studio">
+                    <div className="[writing-mode:vertical-rl] rotate-180 font-bold text-[10px] tracking-widest uppercase whitespace-nowrap h-24 flex items-center justify-center">Relight</div>
+                    {activeSidebar === 'relight' && <div className="absolute right-0 top-2 bottom-2 w-0.5 bg-amber-500 rounded-l"></div>}
+                </button>
+            </div>
+
+            <div className={`flex-none bg-zinc-900 border-r border-zinc-800 transition-all duration-300 ease-in-out flex flex-col overflow-hidden ${['story', 'characters', 'relight'].includes(activeSidebar) ? 'w-80 shadow-2xl opacity-100' : 'w-0 opacity-0 border-none'}`}>
+                {activeSidebar === 'story' && (
+                    <div className="flex-1 p-3 overflow-y-auto space-y-3 pb-24 scrollbar-hide min-w-0">
+                        <div className="flex items-center gap-3 mb-2"><SparklesIcon className="w-6 h-6 text-indigo-400" /><h3 className="font-bold text-white text-base">Story Flow</h3></div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">1. Upload Page</label>
+                            <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-zinc-700 hover:border-indigo-500/50 hover:bg-zinc-800/50 transition relative flex flex-col items-center justify-center text-zinc-500 group overflow-hidden bg-zinc-800/20">
+                                {storyFlow.storyboardImage ? (
+                                    <><img src={storyFlow.storyboardImage} alt="Board" className="absolute inset-0 w-full h-full object-contain bg-black/50" /><button onClick={() => setStoryFlow(prev => ({ ...prev, storyboardImage: null, detectedPrompts: [] }))} className="absolute top-2 right-2 bg-black/80 text-white p-1.5 rounded-full hover:bg-red-500/80 z-10 transition"><XMarkIcon className="w-4 h-4" /></button></>
+                                ) : (
+                                    <><PlusIcon className="w-8 h-8 mb-2 group-hover:scale-110 transition" /><span className="text-xs text-center px-4 font-medium">Click to upload Storyboard Page</span><input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleStoryFlowUpload} /></>
+                                )}
                             </div>
-
-                            {!settings.relight.enabled && (
-                                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
-                                    <button onClick={() => setSettings(s => ({...s, relight: {...s.relight, enabled: true}}))} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold shadow-2xl shadow-indigo-500/20 flex items-center gap-2 transform hover:scale-105 transition">
-                                        <BoltIcon className="w-5 h-5" />Enable Studio Lights
-                                    </button>
-                                </div>
-                            )}
                         </div>
-                    )}
-                </div>
-
-                <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-hidden">
-                    {settings.relight.enabled && !generatedVideoUrl && !generatedReplicateVideoUrl && !isGeneratingVideo && !isGeneratingReplicateVideo && (
-                        <>
-                            {renderLightBeam('key')}
-                            {renderLightBeam('rim')}
-                            {renderLightBeam('back')}
-                            {renderLightBeam('bounce')}
-                        </>
-                    )}
-                </svg>
-
-                <div ref={previewRef} className="absolute inset-0 z-20 pointer-events-none">
-                    {settings.relight.enabled && !generatedVideoUrl && !generatedReplicateVideoUrl && !isGeneratingVideo && !isGeneratingReplicateVideo && (
-                        <>
-                            {renderLightHandle('key', 'Key Light')}
-                            {renderLightHandle('rim', 'Rim Light')}
-                            {renderLightHandle('back', 'Backlight')}
-                            {renderLightHandle('bounce', 'Bounce Fill')}
-                        </>
-                    )}
-                </div>
-
-                {currentImage && !draggingLight && !generatedVideoUrl && !generatedReplicateVideoUrl && (
-                    <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-xs text-white flex items-center gap-1 pointer-events-none z-30">
-                        <span className="text-green-400">Shot:</span> <span className="truncate max-w-[200px]">{currentImage.angleUsed}</span>
+                        <div className="space-y-3">
+                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">2. Story Prompt</label>
+                            <textarea value={storyFlow.storyPrompt} onChange={(e) => setStoryFlow(prev => ({ ...prev, storyPrompt: e.target.value }))} className="w-full bg-zinc-800 text-zinc-200 text-sm p-4 rounded-xl border border-zinc-700 outline-none focus:border-indigo-500 min-h-[100px] resize-none" placeholder="Briefly describe the scene flow..." />
+                            <div className="flex justify-end"><button onClick={handleSaveStoryPrompt} className={`text-xs px-4 py-2 rounded-lg transition-all flex items-center gap-2 font-medium ${storyPromptSaveSuccess ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700'}`}>{storyPromptSaveSuccess ? <CheckCircleIcon className="w-3.5 h-3.5" /> : null}{storyPromptSaveSuccess ? 'Saved' : 'Save Prompt'}</button></div>
+                        </div>
+                        <button onClick={handleAnalyzeStoryFlow} disabled={!storyFlow.storyboardImage || storyFlow.isAnalyzing} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20">{storyFlow.isAnalyzing ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <BoltIcon className="w-5 h-5" />}Analyze Board</button>
+                        {storyFlow.detectedPrompts.length > 0 && <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4"><div className="flex items-center gap-2 text-green-400 text-sm font-bold mb-2"><CheckCircleIcon className="w-5 h-5" />{storyFlow.detectedPrompts.length} Panels Identified</div><p className="text-xs text-zinc-400 leading-relaxed">Analysis complete. Close this panel and click the main <strong className="text-white">Generate</strong> button.</p></div>}
+                    </div>
+                )}
+                {activeSidebar === 'characters' && (
+                    <div className="flex-1 p-3 overflow-y-auto space-y-3 pb-24 scrollbar-hide min-w-0">
+                        <div className="flex items-center gap-3 mb-2"><UserGroupIcon className="w-6 h-6 text-pink-400" /><h3 className="font-bold text-white text-base">Characters</h3></div>
+                        <div className="bg-zinc-800/50 rounded-xl p-2 border border-zinc-700 space-y-2">
+                            <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Create Character</div>
+                            <div className="flex gap-4">
+                                <label className="w-20 h-20 shrink-0 rounded-lg bg-zinc-900 border border-dashed border-zinc-600 hover:border-pink-500 cursor-pointer flex items-center justify-center overflow-hidden transition group">
+                                    {newCharacterImage ? <img src={newCharacterImage} className="w-full h-full object-cover" alt="New Char" /> : <PlusIcon className="w-6 h-6 text-zinc-500 group-hover:scale-110 transition" />}
+                                    <input type="file" accept="image/*" className="hidden" onChange={handleNewCharacterUpload} />
+                                </label>
+                                <div className="flex-1 space-y-3">
+                                    <input type="text" placeholder="Name (e.g. Vani)" value={newCharacterName} onChange={e => setNewCharacterName(e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-sm text-white focus:border-pink-500 outline-none" />
+                                    <button onClick={handleAutoGeneratePersona} disabled={isGeneratingPersona || !newCharacterImage} className="w-full bg-zinc-700 hover:bg-zinc-600 text-xs py-2 rounded-lg text-zinc-300 flex items-center justify-center gap-1.5 disabled:opacity-50 transition">{isGeneratingPersona ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <SparklesIcon className="w-3.5 h-3.5" />}Auto-Gen Persona</button>
+                                </div>
+                            </div>
+                            <textarea value={newCharacterPersona} onChange={e => setNewCharacterPersona(e.target.value)} placeholder="Persona Prompt (NAME|trait|trait...)" className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-xs text-zinc-300 focus:border-pink-500 outline-none min-h-[80px]" />
+                            <button onClick={handleSaveCharacter} className="w-full bg-pink-600 hover:bg-pink-500 text-white text-sm py-2.5 rounded-lg font-bold shadow-lg shadow-pink-500/20 transition">Save Character</button>
+                        </div>
+                        <div className="space-y-4">
+                            <div className="text-xs font-bold text-zinc-500 uppercase mt-6 mb-3 tracking-wider">Saved Characters ({characters.length})</div>
+                            {characters.map(char => (
+                                <div key={char.id} className="bg-zinc-800 rounded-xl p-4 flex gap-4 group relative border border-transparent hover:border-zinc-700 transition-all hover:bg-zinc-750">
+                                    <img src={char.imageBase64} alt={char.name} className="w-16 h-16 rounded-lg object-cover bg-black flex-shrink-0" />
+                                    <div className="flex-1 min-w-0 flex flex-col justify-center"><div className="text-sm font-bold text-white truncate">@{char.name}</div><div className="text-[10px] text-zinc-400 line-clamp-3 leading-tight mt-1">{char.personaPrompt}</div></div>
+                                    <button onClick={() => handleDeleteCharacter(char.id)} className="absolute top-2 right-2 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition bg-zinc-900/80 p-1 rounded-full backdrop-blur-sm"><TrashIcon className="w-3.5 h-3.5" /></button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                {activeSidebar === 'relight' && (
+                    <div className="flex-1 p-3 overflow-hidden flex flex-col min-w-0 h-full">
+                        <RelightPanel settings={settings.relight} onChange={(newRelight) => setSettings({ ...settings, relight: newRelight })} />
+                        <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[10px] text-amber-500 flex gap-2 leading-relaxed"><LightBulbIcon className="w-5 h-5 shrink-0" /><div><strong>Pro Tip:</strong> Drag the lights on the canvas to position them. The beam shape previews the spread and softness.</div></div>
                     </div>
                 )}
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center relative z-20">
-                 {generatedImages.length > 0 && (
-                     <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide flex-1 max-w-full">
-                        {generatedImages.map((img, idx) => (
-                            <button key={idx} onClick={() => { setSelectedImageIndex(idx); setGeneratedVideoUrl(null); }} className={`relative flex-shrink-0 w-24 aspect-video rounded-lg overflow-hidden border-2 transition ${selectedImageIndex === idx ? 'border-green-500 ring-2 ring-green-500/30' : 'border-zinc-800 opacity-60 hover:opacity-100'}`} title={img.angleUsed}>
-                                <img src={img.url} className="w-full h-full object-cover" alt={`Variant ${idx}`} />
-                            </button>
-                        ))}
-                     </div>
-                 )}
-                 
-                 <div className="flex gap-2 w-full md:w-auto">
-                    {generatedImages.length > 1 && (
-                        <button onClick={handleDownloadAll} className="flex-1 md:flex-none bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-4 py-2.5 rounded-lg text-xs font-bold border border-zinc-700 transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap cursor-pointer">
-                            <ArrowDownTrayIcon className="w-4 h-4" /> Download All
-                        </button>
-                    )}
-                    {generatedVideoUrl && (
-                        <button onClick={() => handleDownloadVideo(generatedVideoUrl, `gemini-video-${Date.now()}.mp4`)} className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
-                            <ArrowDownTrayIcon className="w-4 h-4" /> Download Veo Video
-                        </button>
-                    )}
-                    {generatedReplicateVideoUrl && (
-                        <button onClick={() => handleDownloadVideo(generatedReplicateVideoUrl, `replicate-video-${Date.now()}.mp4`)} className="flex-1 md:flex-none bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-purple-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
-                            <ArrowDownTrayIcon className="w-4 h-4" /> Download Video
-                        </button>
-                    )}
-                    {!generatedVideoUrl && !generatedReplicateVideoUrl && currentImage && (
-                        <a href={currentImage.url} download={`gemini-studio-render-${Date.now()}.png`} className="flex-1 md:flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
-                            <ArrowDownTrayIcon className="w-4 h-4" /> Download Image
-                        </a>
-                    )}
-                 </div>
-            </div>
+            <div className="flex-1 flex flex-col h-full min-w-0 transition-all duration-300">
+                <div className="p-2 border-b border-zinc-800 bg-zinc-950 flex-none sticky top-0 z-10">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                            <PhotoIcon className="w-5 h-5 text-green-400" />
+                            <h2 className="text-lg font-bold text-white">Visual Studio</h2>
+                            <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20 ml-2">PRO</span>
+                        </div>
+                    </div>
+                </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10">
-              <div className="lg:col-span-2 space-y-2">
-                <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex justify-between"><span>Final Prompt</span>{characters.length > 0 && <span className="text-[10px] text-pink-400">Tip: Use @name to insert character</span>}</label>
-                <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} disabled={activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0} className={`w-full bg-zinc-900 text-zinc-100 rounded-xl p-4 border border-zinc-800 focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none h-32 resize-none font-light leading-relaxed ${activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`} placeholder={activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0 ? "Using prompts detected from Story Flow..." : "Waiting for prompt from Architect... (Type @name to use characters)"} />
-              </div>
-              
-              <div className="space-y-4">
-                 <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider block mb-2">Format</label>
-                 <div className="grid grid-cols-2 gap-4">
-                    <div><span className="text-xs text-zinc-400 mb-1 block">Aspect Ratio</span><select value={settings.aspectRatio} onChange={(e) => setSettings({...settings, aspectRatio: e.target.value as AspectRatio})} className="w-full bg-zinc-900 text-white p-2.5 rounded-lg border border-zinc-800 outline-none focus:border-green-500 text-sm"><option value="Auto">Auto</option><option value="1:1">1:1 (Square)</option><option value="16:9">16:9 (Landscape)</option><option value="9:16">9:16 (Portrait)</option><option value="4:3">4:3 (Standard)</option><option value="3:4">3:4 (Portrait)</option><option value="21:9">21:9 (Ultrawide)</option><option value="3:2">3:2 (Classic 35mm)</option><option value="2:3">2:3 (Portrait 35mm)</option><option value="5:4">5:4 (Medium Format)</option><option value="4:5">4:5 (Portrait Medium)</option></select></div>
-                    <div><span className="text-xs text-zinc-400 mb-1 block">Resolution</span><select value={settings.imageSize} onChange={(e) => setSettings({...settings, imageSize: e.target.value as ImageSize})} className="w-full bg-zinc-900 text-white p-2.5 rounded-lg border border-zinc-800 outline-none focus:border-green-500 text-sm">{['1K', '2K', '4K'].map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                 </div>
+                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                    <div className="w-full aspect-video bg-zinc-900 rounded-2xl border-2 border-dashed border-zinc-800 flex flex-col items-center justify-center relative overflow-hidden group select-none shadow-2xl">
+                        <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden bg-[#09090b]">
+                            {isGenerating || isGeneratingVideo || isGeneratingReplicateVideo ? (
+                                <div className="flex flex-col items-center justify-center space-y-4">
+                                    <div className="w-16 h-16 border-4 border-zinc-800 border-t-indigo-500 rounded-full animate-spin"></div>
+                                    <p className="text-zinc-400 text-sm font-medium animate-pulse">
+                                        {isGeneratingVideo ? 'Synthesizing Veo Video (This may take a minute)...' :
+                                            isGeneratingReplicateVideo ? 'Generating Replicate Video (This may take a minute)...' :
+                                                'Rendering Scene...'}
+                                    </p>
+                                </div>
+                            ) : generatedVideoUrl ? (
+                                <div className="relative w-full h-full">
+                                    <video
+                                        src={generatedVideoUrl}
+                                        controls
+                                        className="w-full h-full object-contain"
+                                        autoPlay
+                                        loop
+                                    />
+                                    <button onClick={() => setGeneratedVideoUrl(null)} className="absolute top-4 right-4 bg-black/80 p-2 rounded-full text-white hover:bg-red-500 transition"><XMarkIcon className="w-4 h-4" /></button>
+                                    <div className="absolute bottom-4 left-4 bg-black/80 px-3 py-1 rounded-full text-xs text-emerald-400 font-bold">Veo 3.1</div>
+                                </div>
+                            ) : generatedReplicateVideoUrl ? (
+                                <div className="relative w-full h-full">
+                                    <video
+                                        src={generatedReplicateVideoUrl}
+                                        controls
+                                        className="w-full h-full object-contain"
+                                        autoPlay
+                                        loop
+                                    />
+                                    <button onClick={() => setGeneratedReplicateVideoUrl(null)} className="absolute top-4 right-4 bg-black/80 p-2 rounded-full text-white hover:bg-red-500 transition"><XMarkIcon className="w-4 h-4" /></button>
+                                    <div className="absolute bottom-4 left-4 bg-black/80 px-3 py-1 rounded-full text-xs text-purple-400 font-bold">
+                                        {REPLICATE_MODELS.find(m => m.id === replicateVideoSettings.model)?.name || 'Replicate'}
+                                    </div>
+                                </div>
+                            ) : currentImage ? (
+                                <img src={currentImage.url} alt="Generated" className="w-full h-full object-contain" draggable={false} />
+                            ) : (
+                                <div className="relative w-full h-full flex items-center justify-center bg-zinc-950 perspective-[1000px] overflow-hidden group">
+                                    {/* Schematic Stage Grid */}
+                                    <div className="absolute w-[200%] h-[200%] opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px', transform: 'rotateX(60deg) translateY(-20%) translateZ(-100px)', transformOrigin: 'center 40%' }} />
 
-                 {/* VIDEO GENERATION MODULE */}
-                 <div className="mt-6 border border-emerald-800 rounded-xl overflow-hidden bg-[#1e1e20]">
-                     <button onClick={() => setIsReplicateExpanded(!isReplicateExpanded)} className="w-full p-3 bg-zinc-800 hover:bg-zinc-700 transition flex items-center justify-between">
-                         <div className="flex items-center gap-2">
-                             <FilmIcon className="w-4 h-4 text-emerald-500" />
-                             <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Video Generation</span>
-                             <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 rounded ml-2">
-                                 {REPLICATE_MODELS.find(m => m.id === replicateVideoSettings.model)?.name || 'Multiple Models'}
-                             </span>
-                         </div>
-                         {isReplicateExpanded ? <ChevronUpIcon className="w-3 h-3 text-zinc-500" /> : <ChevronDownIcon className="w-3 h-3 text-zinc-500" />}
-                     </button>
+                                    {/* Schematic Subject */}
+                                    <div className="relative z-10 flex flex-col items-center justify-center transition duration-500">
+                                        <UserIcon className="w-32 h-32 text-zinc-700 drop-shadow-2xl" />
+                                        <div className="w-24 h-4 bg-black/50 blur-lg rounded-[100%] mt-[-10px]"></div>
+                                        <p className="mt-4 text-xs font-mono text-zinc-600 uppercase tracking-widest">Subject</p>
+                                    </div>
 
-                     {isReplicateExpanded && (() => {
-                         const selectedModel = REPLICATE_MODELS.find(m => m.id === replicateVideoSettings.model);
-                         const requiresImage = selectedModel?.requiresStartImage || selectedModel?.type === 'image-to-video';
+                                    {!settings.relight.enabled && (
+                                        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+                                            <button onClick={() => setSettings(s => ({ ...s, relight: { ...s.relight, enabled: true } }))} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold shadow-2xl shadow-indigo-500/20 flex items-center gap-2 transform hover:scale-105 transition">
+                                                <BoltIcon className="w-5 h-5" />Enable Studio Lights
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
 
-                         return (
-                         <div className="p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
-                             {/* Frame Uploads */}
-                             <div className="flex gap-4 items-stretch h-32">
-                                 {/* Start Frame */}
-                                 <div className="w-1/4 relative group bg-zinc-900 rounded-lg border border-zinc-700 overflow-hidden flex flex-col">
-                                     <div className="text-[10px] text-zinc-500 uppercase font-bold p-1 text-center bg-zinc-950 flex items-center justify-center gap-1">
-                                         Start Frame
-                                         {requiresImage && <span className="text-red-400">*</span>}
-                                     </div>
-                                     <div className="flex-1 relative flex items-center justify-center">
-                                         {videoFrames.start ? (
-                                             <img src={videoFrames.start} alt="Start" className="absolute inset-0 w-full h-full object-cover" />
-                                         ) : (
-                                             <span className="text-[10px] text-zinc-600">{requiresImage ? 'Required' : 'Optional'}</span>
-                                         )}
-                                         <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition">
-                                             <div className="bg-zinc-800 p-1.5 rounded-full border border-zinc-600">
-                                                 <PencilSquareIcon className="w-4 h-4 text-white" />
-                                             </div>
-                                             <input type="file" accept="image/*" className="hidden" onChange={(e) => handleVideoFrameUpload(e, 'start')} />
-                                         </label>
-                                     </div>
-                                 </div>
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-hidden">
+                            {settings.relight.enabled && !generatedVideoUrl && !generatedReplicateVideoUrl && !isGeneratingVideo && !isGeneratingReplicateVideo && (
+                                <>
+                                    {renderLightBeam('key')}
+                                    {renderLightBeam('rim')}
+                                    {renderLightBeam('back')}
+                                    {renderLightBeam('bounce')}
+                                </>
+                            )}
+                        </svg>
 
-                                 {/* Motion Prompt */}
-                                 <div className="flex-1 flex flex-col relative">
-                                     <div className="flex justify-between items-center mb-1">
-                                         <span className="text-[10px] text-zinc-500 uppercase font-bold">Motion Prompt</span>
-                                         <button
-                                            onClick={handleImprovePrompt}
-                                            disabled={isImprovingPrompt}
-                                            className="text-[9px] flex items-center gap-1 text-indigo-400 hover:text-indigo-300 disabled:opacity-50 transition"
-                                         >
-                                            {isImprovingPrompt ? (
-                                                <div className="w-2 h-2 rounded-full border border-indigo-400 border-t-transparent animate-spin"/>
-                                            ) : (
-                                                <SparklesIcon className="w-3 h-3" />
-                                            )}
-                                            {isImprovingPrompt ? 'Analyzing...' : 'Improve Prompt'}
-                                         </button>
-                                     </div>
-                                     <textarea
-                                        value={videoSettings.motionPrompt}
-                                        onChange={(e) => setVideoSettings({...videoSettings, motionPrompt: e.target.value})}
-                                        placeholder={prompt ? "Using main prompt (edit to override)..." : "Describe the camera motion or action..."}
-                                        className="w-full h-full bg-zinc-900 text-white p-2 text-xs rounded-lg border border-zinc-700 resize-none outline-none focus:border-emerald-500"
-                                     />
-                                 </div>
+                        <div ref={previewRef} className="absolute inset-0 z-20 pointer-events-none">
+                            {settings.relight.enabled && !generatedVideoUrl && !generatedReplicateVideoUrl && !isGeneratingVideo && !isGeneratingReplicateVideo && (
+                                <>
+                                    {renderLightHandle('key', 'Key Light')}
+                                    {renderLightHandle('rim', 'Rim Light')}
+                                    {renderLightHandle('back', 'Backlight')}
+                                    {renderLightHandle('bounce', 'Bounce Fill')}
+                                </>
+                            )}
+                        </div>
 
-                                 {/* End Frame */}
-                                 <div className="w-1/4 relative group bg-zinc-900 rounded-lg border border-zinc-700 overflow-hidden flex flex-col">
-                                     <div className="text-[10px] text-zinc-500 uppercase font-bold p-1 text-center bg-zinc-950">End Frame</div>
-                                      <div className="flex-1 relative flex items-center justify-center">
-                                         {videoFrames.end ? (
-                                             <img src={videoFrames.end} alt="End" className="absolute inset-0 w-full h-full object-cover" />
-                                         ) : (
-                                             <span className="text-[10px] text-zinc-600">Optional</span>
-                                         )}
-                                         <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition">
-                                             <div className="bg-zinc-800 p-1.5 rounded-full border border-zinc-600">
-                                                 <PencilSquareIcon className="w-4 h-4 text-white" />
-                                             </div>
-                                              <input type="file" accept="image/*" className="hidden" onChange={(e) => handleVideoFrameUpload(e, 'end')} />
-                                         </label>
-                                     </div>
-                                 </div>
-                             </div>
-
-                             {/* Model Selector */}
-                             <div className="space-y-2">
-                                 <label className="text-[10px] text-zinc-500 block mb-1">Video Model</label>
-                                 <select
-                                    value={replicateVideoSettings.model}
-                                    onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, model: e.target.value})}
-                                    className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none focus:border-emerald-500"
-                                 >
-                                     {REPLICATE_MODELS.map(m => (
-                                         <option key={m.id} value={m.id}>{m.name} - {m.type}</option>
-                                     ))}
-                                 </select>
-                                 <p className="text-[9px] text-zinc-500 mt-1">
-                                     {selectedModel?.description}
-                                 </p>
-                             </div>
-
-                             {/* Dynamic Options Grid */}
-                             <div className="grid grid-cols-2 gap-3">
-                                 {/* Aspect Ratio (or note if from input image) */}
-                                 <div>
-                                     <label className="text-[10px] text-zinc-500 block mb-1">Aspect Ratio</label>
-                                     {selectedModel?.aspectRatios ? (
-                                         <select
-                                            value={replicateVideoSettings.aspectRatio}
-                                            onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, aspectRatio: e.target.value})}
-                                            className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
-                                         >
-                                             {selectedModel.aspectRatios.map(ratio => (
-                                                 <option key={ratio} value={ratio}>{ratio}</option>
-                                             ))}
-                                         </select>
-                                     ) : (
-                                         <div className="w-full bg-zinc-900/50 text-zinc-500 p-2 rounded border border-zinc-700/50 text-xs flex items-center justify-center opacity-50 cursor-not-allowed">
-                                             From Input Image
-                                         </div>
-                                     )}
-                                 </div>
-
-                                 {/* Duration (dynamic based on model) */}
-                                 {selectedModel?.durations && (
-                                     <div>
-                                         <label className="text-[10px] text-zinc-500 block mb-1">Duration</label>
-                                         <select
-                                            value={replicateVideoSettings.duration}
-                                            onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, duration: e.target.value})}
-                                            className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
-                                         >
-                                             {selectedModel.durations.map(dur => (
-                                                 <option key={dur} value={dur}>{dur} seconds</option>
-                                             ))}
-                                         </select>
-                                     </div>
-                                 )}
-
-                                 {/* Mode (for Kling - shows in place of resolution) */}
-                                 {selectedModel?.modes && (
-                                     <div>
-                                         <label className="text-[10px] text-zinc-500 block mb-1">Mode (Quality)</label>
-                                         <select
-                                            value={replicateVideoSettings.mode}
-                                            onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, mode: e.target.value})}
-                                            className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
-                                         >
-                                             {selectedModel.modes.map(mode => (
-                                                 <option key={mode} value={mode}>{mode === 'standard' ? 'Standard (720p)' : 'Pro (1080p)'}</option>
-                                             ))}
-                                         </select>
-                                     </div>
-                                 )}
-
-                                 {/* Resolution (if not Kling which uses mode) */}
-                                 {!selectedModel?.modes && (
-                                     <div>
-                                         <label className="text-[10px] text-zinc-500 block mb-1">Resolution</label>
-                                         {selectedModel?.resolutions ? (
-                                             <select
-                                                value={replicateVideoSettings.resolution}
-                                                onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, resolution: e.target.value})}
-                                                className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
-                                             >
-                                                 {selectedModel.resolutions.map(res => (
-                                                     <option key={res} value={res}>{res}</option>
-                                                 ))}
-                                             </select>
-                                         ) : (
-                                             <div className="w-full bg-zinc-900/50 text-zinc-500 p-2 rounded border border-zinc-700/50 text-xs flex items-center justify-center opacity-50 cursor-not-allowed">
-                                                 Auto
-                                             </div>
-                                         )}
-                                     </div>
-                                 )}
-
-                                 {/* FPS (for Wan model only) */}
-                                 {selectedModel?.fpsRange && (
-                                     <div>
-                                         <label className="text-[10px] text-zinc-500 block mb-1">FPS (Frames/Sec)</label>
-                                         <input
-                                            type="number"
-                                            min={selectedModel.fpsRange[0]}
-                                            max={selectedModel.fpsRange[1]}
-                                            value={replicateVideoSettings.fps || 16}
-                                            onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, fps: parseInt(e.target.value)})}
-                                            className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
-                                         />
-                                     </div>
-                                 )}
-
-                                 {/* Frame Count (for Wan model only) */}
-                                 {selectedModel?.frameRange && (
-                                     <div>
-                                         <label className="text-[10px] text-zinc-500 block mb-1">Frame Count</label>
-                                         <input
-                                            type="number"
-                                            min={selectedModel.frameRange[0]}
-                                            max={selectedModel.frameRange[1]}
-                                            value={replicateVideoSettings.numFrames || 81}
-                                            onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, numFrames: parseInt(e.target.value)})}
-                                            className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
-                                         />
-                                     </div>
-                                 )}
-                             </div>
-
-                             {/* Audio Generation Toggle (for Veo models) */}
-                             {selectedModel?.supportsAudio && (
-                                 <div className="flex items-center justify-between p-2 bg-zinc-900 rounded-lg border border-zinc-700">
-                                     <label className="text-[10px] text-zinc-400">Generate Audio</label>
-                                     <button
-                                        onClick={() => setReplicateVideoSettings({
-                                            ...replicateVideoSettings,
-                                            generateAudio: !replicateVideoSettings.generateAudio
-                                        })}
-                                        className={`relative w-10 h-5 rounded-full transition ${
-                                            replicateVideoSettings.generateAudio !== false ? 'bg-emerald-500' : 'bg-zinc-700'
-                                        }`}
-                                     >
-                                         <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
-                                             replicateVideoSettings.generateAudio !== false ? 'translate-x-5' : 'translate-x-0'
-                                         }`} />
-                                     </button>
-                                 </div>
-                             )}
-
-                             {/* Negative Prompt */}
-                             <div>
-                                 <label className="text-[10px] text-zinc-500 block mb-1">Negative Prompt (Optional)</label>
-                                 <textarea
-                                    value={replicateVideoSettings.negativePrompt || ''}
-                                    onChange={(e) => setReplicateVideoSettings({...replicateVideoSettings, negativePrompt: e.target.value})}
-                                    placeholder="Describe what you don't want to see..."
-                                    className="w-full bg-zinc-900 text-white p-2 text-xs rounded-lg border border-zinc-700 resize-none outline-none focus:border-emerald-500 h-16"
-                                 />
-                             </div>
-
-                             {/* Generate Button */}
-                             <button
-                                onClick={handleGenerateReplicateVideo}
-                                disabled={isGeneratingReplicateVideo || (requiresImage && !videoFrames.start)}
-                                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 text-sm"
-                             >
-                                 {isGeneratingReplicateVideo ? (
-                                     <>
-                                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                         Generating...
-                                     </>
-                                 ) : (
-                                     <>
-                                         <FilmIcon className="w-4 h-4" />
-                                         Generate Video
-                                     </>
-                                 )}
-                             </button>
-                         </div>
-                         );
-                     })()}
-                 </div>
-
-                 <div className="mt-4 pt-4 border-t border-zinc-800">
-                    <div className="flex justify-between items-center mb-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Reference Images</label><span className="text-[10px] text-zinc-500">{settings.referenceImages.length}/4</span></div>
-                    <div className="grid grid-cols-4 gap-2">
-                        {settings.referenceImages.map((img, idx) => (<div key={idx} className="relative aspect-square rounded-lg overflow-hidden group border border-zinc-700 bg-zinc-900"><img src={img} alt="Ref" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" /><button onClick={() => handleRemoveReferenceImage(idx)} className="absolute top-1 right-1 bg-black/70 hover:bg-red-500/80 p-1 rounded-full text-white backdrop-blur-sm transition" title="Remove"><XMarkIcon className="w-3 h-3" /></button></div>))}
-                        {settings.referenceImages.length < 4 && (
-                          <>
-                            <button
-                              onClick={handleUseLastRender}
-                              disabled={generatedImages.length === 0}
-                              className="aspect-square rounded-lg border border-dashed border-zinc-700 hover:border-indigo-500/50 hover:bg-zinc-800/50 transition cursor-pointer flex flex-col items-center justify-center text-zinc-500 hover:text-indigo-400 group disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-zinc-700 disabled:hover:text-zinc-500"
-                              title={generatedImages.length === 0 ? "No images generated yet" : "Use last generated image"}
-                            >
-                              <ArrowDownTrayIcon className="w-5 h-5 mb-1 group-hover:scale-110 transition" />
-                              <span className="text-[9px]">Use Last</span>
-                            </button>
-                            <label className="aspect-square rounded-lg border border-dashed border-zinc-700 hover:border-green-500/50 hover:bg-zinc-800/50 transition cursor-pointer flex flex-col items-center justify-center text-zinc-500 hover:text-green-400 group"><PlusIcon className="w-5 h-5 mb-1 group-hover:scale-110 transition" /><span className="text-[9px]">Add Image</span><input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} /></label>
-                          </>
+                        {currentImage && !draggingLight && !generatedVideoUrl && !generatedReplicateVideoUrl && (
+                            <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-xs text-white flex items-center gap-1 pointer-events-none z-30">
+                                <span className="text-green-400">Shot:</span> <span className="truncate max-w-[200px]">{currentImage.angleUsed}</span>
+                            </div>
                         )}
                     </div>
-                 </div>
-              </div>
-              <div className="space-y-4 lg:col-span-1">
-                 <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider block mb-2">Cinematography</label>
-                 <div className="grid grid-cols-1 gap-3">
-                    <CameraControls settings={settings.cameraControls} onChange={(newCam) => setSettings({...settings, cameraControls: newCam})} />
-                    <div className="grid grid-cols-2 gap-3">
-                        <select value={settings.lighting} onChange={(e) => setSettings({...settings, lighting: e.target.value})} disabled={settings.relight?.enabled} className={`w-full bg-zinc-900 text-white p-2.5 rounded-lg border border-zinc-800 outline-none focus:border-green-500 text-sm ${settings.relight?.enabled ? 'opacity-50 cursor-not-allowed' : ''}`}><option disabled>Select Lighting</option>{LIGHTING_OPTIONS.map(l => <option key={l} value={l}>{l}</option>)}</select>
-                        <select value={settings.mood} onChange={(e) => setSettings({...settings, mood: e.target.value})} className="w-full bg-zinc-900 text-white p-2.5 rounded-lg border border-zinc-800 outline-none focus:border-green-500 text-sm"><option disabled>Select Mood</option>{MOOD_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}</select>
-                    </div>
-                    {settings.relight?.enabled && (<button onClick={() => toggleSidebar('relight')} className="w-full p-2 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-lg text-xs font-medium flex items-center justify-center gap-2 hover:bg-amber-500/20 transition"><LightBulbIcon className="w-4 h-4" /> Relight Active (Modify in Sidebar)</button>)}
-                    <div className="bg-zinc-900 rounded-xl p-3 border border-zinc-800">
-                        <div className="flex justify-between items-center mb-2"><span className="text-xs text-zinc-400 font-medium flex items-center gap-1.5"><PaintBrushIcon className="w-3 h-3" />Digital Intermediate (DI)</span></div>
-                        <div className="space-y-2"><select value={settings.diWorkflow} onChange={(e) => setSettings({...settings, diWorkflow: e.target.value})} className="w-full bg-zinc-800 text-white p-2 rounded-lg border border-zinc-700 outline-none focus:border-green-500 text-xs">{DI_WORKFLOW_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select><input type="text" value={settings.customColorGrading} onChange={(e) => setSettings({...settings, customColorGrading: e.target.value})} placeholder="Custom LUT / Color Hex / Preset..." className="w-full bg-zinc-800 text-white p-2 rounded-lg border border-zinc-700 outline-none focus:border-green-500 text-xs placeholder-zinc-500" /></div>
-                    </div>
-                    <div className={`bg-zinc-900 rounded-xl p-3 border border-zinc-800 ${hasCustomCamera ? 'opacity-40 pointer-events-none' : ''}`}>
-                        <div className="flex justify-between items-center mb-2"><span className="text-xs text-zinc-400 font-medium">Camera Shot / Angle (Multi-Select)</span>{!isMergeMode && isPresetComboMode && activeSidebar === 'none' && !hasCustomCamera && (<span className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full animate-pulse">Preset Combo (6 Shots)</span>)}</div>
-                        <div className="flex flex-wrap gap-2 mb-3">{ANGLE_OPTIONS.map(angle => {const isSelected = settings.cameraAngles.includes(angle); return (<button key={angle} onClick={() => toggleAngle(angle)} className={`px-3 py-1.5 rounded-full text-[10px] md:text-xs font-medium border transition-all duration-200 flex items-center gap-1.5 ${isSelected ? 'bg-green-500/10 text-green-400 border-green-500/50 shadow-sm shadow-green-500/10' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-600 hover:bg-zinc-750'}`}>{isSelected && <CheckCircleIcon className="w-3 h-3" />}{angle}</button>);})}</div>
-                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-800">
-                            <button onClick={() => togglePreset(FRAMING_OPTIONS)} className={`p-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-2 transition ${isFramingAllSelected ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/50 shadow shadow-indigo-500/10' : 'bg-zinc-800/50 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600'}`}><VideoCameraIcon className="w-4 h-4" /> By Distance/Framing</button>
-                            <button onClick={() => togglePreset(CAMERA_ANGLE_OPTIONS)} className={`p-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-2 transition ${isAngleAllSelected ? 'bg-purple-500/20 text-purple-300 border-purple-500/50 shadow shadow-purple-500/10' : 'bg-zinc-800/50 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600'}`}><EyeIcon className="w-4 h-4" /> By Angle</button>
+
+                    <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center relative z-20">
+                        {generatedImages.length > 0 && (
+                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide flex-1 max-w-full">
+                                {generatedImages.map((img, idx) => (
+                                    <button key={idx} onClick={() => { setSelectedImageIndex(idx); setGeneratedVideoUrl(null); }} className={`relative flex-shrink-0 w-24 aspect-video rounded-lg overflow-hidden border-2 transition ${selectedImageIndex === idx ? 'border-green-500 ring-2 ring-green-500/30' : 'border-zinc-800 opacity-60 hover:opacity-100'}`} title={img.angleUsed}>
+                                        <img src={img.url} className="w-full h-full object-cover" alt={`Variant ${idx}`} />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="flex gap-2 w-full md:w-auto">
+                            {generatedImages.length > 1 && (
+                                <button onClick={handleDownloadAll} className="flex-1 md:flex-none bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-4 py-2.5 rounded-lg text-xs font-bold border border-zinc-700 transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap cursor-pointer">
+                                    <ArrowDownTrayIcon className="w-4 h-4" /> Download All
+                                </button>
+                            )}
+                            {generatedVideoUrl && (
+                                <button onClick={() => handleDownloadVideo(generatedVideoUrl, `gemini-video-${Date.now()}.mp4`)} className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
+                                    <ArrowDownTrayIcon className="w-4 h-4" /> Download Veo Video
+                                </button>
+                            )}
+                            {generatedReplicateVideoUrl && (
+                                <button onClick={() => handleDownloadVideo(generatedReplicateVideoUrl, `replicate-video-${Date.now()}.mp4`)} className="flex-1 md:flex-none bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-purple-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
+                                    <ArrowDownTrayIcon className="w-4 h-4" /> Download Video
+                                </button>
+                            )}
+                            {!generatedVideoUrl && !generatedReplicateVideoUrl && currentImage && (
+                                <a href={currentImage.url} download={`gemini-studio-render-${Date.now()}.png`} className="flex-1 md:flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
+                                    <ArrowDownTrayIcon className="w-4 h-4" /> Download Image
+                                </a>
+                            )}
                         </div>
-                        <button onClick={() => setIsMergeMode(!isMergeMode)} disabled={activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0} className={`w-full mt-2 p-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-2 transition ${isMergeMode ? 'bg-teal-600 text-white border-teal-500 shadow-lg shadow-teal-500/20' : 'bg-zinc-800/50 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600'} ${activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}><LinkIcon className="w-4 h-4" />{isMergeMode ? 'Combined Mode Active (Single Image)' : 'Activate Combined Mode'}</button>
                     </div>
-                 </div>
-              </div>
+
+                    <div className="grid grid-cols-1 gap-3 relative z-10">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex justify-between"><span>Final Prompt</span>{characters.length > 0 && <span className="text-[10px] text-pink-400">Tip: Use @name to insert character</span>}</label>
+                            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} disabled={activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0} className={`w-full bg-zinc-900 text-zinc-100 rounded-xl p-2 border border-zinc-800 focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none h-24 resize-none font-light leading-relaxed ${activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`} placeholder={activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0 ? "Using prompts detected from Story Flow..." : "Waiting for prompt from Architect... (Type @name to use characters)"} />
+                        </div>
+
+
+
+                        {/* VIDEO GENERATION MODULE */}
+                        <div className="mt-3 border border-emerald-800 rounded-xl overflow-hidden bg-[#1e1e20]">
+                            <button onClick={() => setIsReplicateExpanded(!isReplicateExpanded)} className="w-full p-2 bg-zinc-800 hover:bg-zinc-700 transition flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <FilmIcon className="w-4 h-4 text-emerald-500" />
+                                    <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Video Generation</span>
+                                    <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 rounded ml-2">
+                                        {REPLICATE_MODELS.find(m => m.id === replicateVideoSettings.model)?.name || 'Multiple Models'}
+                                    </span>
+                                </div>
+                                {isReplicateExpanded ? <ChevronUpIcon className="w-3 h-3 text-zinc-500" /> : <ChevronDownIcon className="w-3 h-3 text-zinc-500" />}
+                            </button>
+
+                            {isReplicateExpanded && (() => {
+                                const selectedModel = REPLICATE_MODELS.find(m => m.id === replicateVideoSettings.model);
+                                const requiresImage = selectedModel?.requiresStartImage || selectedModel?.type === 'image-to-video';
+
+                                return (
+                                    <div className="p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
+                                        {/* Frame Uploads */}
+                                        <div className="flex gap-4 items-stretch h-32">
+                                            {/* Start Frame */}
+                                            <div className="w-1/4 relative group bg-zinc-900 rounded-lg border border-zinc-700 overflow-hidden flex flex-col">
+                                                <div className="text-[10px] text-zinc-500 uppercase font-bold p-1 text-center bg-zinc-950 flex items-center justify-center gap-1">
+                                                    Start Frame
+                                                    {requiresImage && <span className="text-red-400">*</span>}
+                                                </div>
+                                                <div className="flex-1 relative flex items-center justify-center">
+                                                    {videoFrames.start ? (
+                                                        <img src={videoFrames.start} alt="Start" className="absolute inset-0 w-full h-full object-cover" />
+                                                    ) : (
+                                                        <span className="text-[10px] text-zinc-600">{requiresImage ? 'Required' : 'Optional'}</span>
+                                                    )}
+                                                    <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition">
+                                                        <div className="bg-zinc-800 p-1.5 rounded-full border border-zinc-600">
+                                                            <PencilSquareIcon className="w-4 h-4 text-white" />
+                                                        </div>
+                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleVideoFrameUpload(e, 'start')} />
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            {/* Motion Prompt */}
+                                            <div className="flex-1 flex flex-col relative">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <span className="text-[10px] text-zinc-500 uppercase font-bold">Motion Prompt</span>
+                                                    <button
+                                                        onClick={handleImprovePrompt}
+                                                        disabled={isImprovingPrompt}
+                                                        className="text-[9px] flex items-center gap-1 text-indigo-400 hover:text-indigo-300 disabled:opacity-50 transition"
+                                                    >
+                                                        {isImprovingPrompt ? (
+                                                            <div className="w-2 h-2 rounded-full border border-indigo-400 border-t-transparent animate-spin" />
+                                                        ) : (
+                                                            <SparklesIcon className="w-3 h-3" />
+                                                        )}
+                                                        {isImprovingPrompt ? 'Analyzing...' : 'Improve Prompt'}
+                                                    </button>
+                                                </div>
+                                                <textarea
+                                                    value={videoSettings.motionPrompt}
+                                                    onChange={(e) => setVideoSettings({ ...videoSettings, motionPrompt: e.target.value })}
+                                                    placeholder={prompt ? "Using main prompt (edit to override)..." : "Describe the camera motion or action..."}
+                                                    className="w-full h-full bg-zinc-900 text-white p-2 text-xs rounded-lg border border-zinc-700 resize-none outline-none focus:border-emerald-500"
+                                                />
+                                            </div>
+
+                                            {/* End Frame */}
+                                            <div className="w-1/4 relative group bg-zinc-900 rounded-lg border border-zinc-700 overflow-hidden flex flex-col">
+                                                <div className="text-[10px] text-zinc-500 uppercase font-bold p-1 text-center bg-zinc-950">End Frame</div>
+                                                <div className="flex-1 relative flex items-center justify-center">
+                                                    {videoFrames.end ? (
+                                                        <img src={videoFrames.end} alt="End" className="absolute inset-0 w-full h-full object-cover" />
+                                                    ) : (
+                                                        <span className="text-[10px] text-zinc-600">Optional</span>
+                                                    )}
+                                                    <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition">
+                                                        <div className="bg-zinc-800 p-1.5 rounded-full border border-zinc-600">
+                                                            <PencilSquareIcon className="w-4 h-4 text-white" />
+                                                        </div>
+                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleVideoFrameUpload(e, 'end')} />
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Model Selector */}
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] text-zinc-500 block mb-1">Video Model</label>
+                                            <select
+                                                value={replicateVideoSettings.model}
+                                                onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, model: e.target.value })}
+                                                className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none focus:border-emerald-500"
+                                            >
+                                                {REPLICATE_MODELS.map(m => (
+                                                    <option key={m.id} value={m.id}>{m.name} - {m.type}</option>
+                                                ))}
+                                            </select>
+                                            <p className="text-[9px] text-zinc-500 mt-1">
+                                                {selectedModel?.description}
+                                            </p>
+                                        </div>
+
+                                        {/* Dynamic Options Grid */}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {/* Aspect Ratio (or note if from input image) */}
+                                            <div>
+                                                <label className="text-[10px] text-zinc-500 block mb-1">Aspect Ratio</label>
+                                                {selectedModel?.aspectRatios ? (
+                                                    <select
+                                                        value={replicateVideoSettings.aspectRatio}
+                                                        onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, aspectRatio: e.target.value })}
+                                                        className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                                    >
+                                                        {selectedModel.aspectRatios.map(ratio => (
+                                                            <option key={ratio} value={ratio}>{ratio}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <div className="w-full bg-zinc-900/50 text-zinc-500 p-2 rounded border border-zinc-700/50 text-xs flex items-center justify-center opacity-50 cursor-not-allowed">
+                                                        From Input Image
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Duration (dynamic based on model) */}
+                                            {selectedModel?.durations && (
+                                                <div>
+                                                    <label className="text-[10px] text-zinc-500 block mb-1">Duration</label>
+                                                    <select
+                                                        value={replicateVideoSettings.duration}
+                                                        onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, duration: e.target.value })}
+                                                        className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                                    >
+                                                        {selectedModel.durations.map(dur => (
+                                                            <option key={dur} value={dur}>{dur} seconds</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
+
+
+
+                                            {/* Resolution */}
+                                            {true && (
+                                                <div>
+                                                    <label className="text-[10px] text-zinc-500 block mb-1">Resolution</label>
+                                                    {selectedModel?.resolutions ? (
+                                                        <select
+                                                            value={replicateVideoSettings.resolution}
+                                                            onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, resolution: e.target.value })}
+                                                            className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                                        >
+                                                            {selectedModel.resolutions.map(res => (
+                                                                <option key={res} value={res}>{res}</option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <div className="w-full bg-zinc-900/50 text-zinc-500 p-2 rounded border border-zinc-700/50 text-xs flex items-center justify-center opacity-50 cursor-not-allowed">
+                                                            Auto
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* FPS (for Wan model only) */}
+                                            {selectedModel?.fpsRange && (
+                                                <div>
+                                                    <label className="text-[10px] text-zinc-500 block mb-1">FPS (Frames/Sec)</label>
+                                                    <input
+                                                        type="number"
+                                                        min={selectedModel.fpsRange[0]}
+                                                        max={selectedModel.fpsRange[1]}
+                                                        value={replicateVideoSettings.fps || 16}
+                                                        onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, fps: parseInt(e.target.value) })}
+                                                        className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {/* Frame Count (for Wan model only) */}
+                                            {selectedModel?.frameRange && (
+                                                <div>
+                                                    <label className="text-[10px] text-zinc-500 block mb-1">Frame Count</label>
+                                                    <input
+                                                        type="number"
+                                                        min={selectedModel.frameRange[0]}
+                                                        max={selectedModel.frameRange[1]}
+                                                        value={replicateVideoSettings.numFrames || 81}
+                                                        onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, numFrames: parseInt(e.target.value) })}
+                                                        className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 text-xs outline-none"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Audio Generation Toggle (for Veo models) */}
+                                        {selectedModel?.supportsAudio && (
+                                            <div className="flex items-center justify-between p-2 bg-zinc-900 rounded-lg border border-zinc-700">
+                                                <label className="text-[10px] text-zinc-400">Generate Audio</label>
+                                                <button
+                                                    onClick={() => setReplicateVideoSettings({
+                                                        ...replicateVideoSettings,
+                                                        generateAudio: !replicateVideoSettings.generateAudio
+                                                    })}
+                                                    className={`relative w-10 h-5 rounded-full transition ${replicateVideoSettings.generateAudio !== false ? 'bg-emerald-500' : 'bg-zinc-700'
+                                                        }`}
+                                                >
+                                                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${replicateVideoSettings.generateAudio !== false ? 'translate-x-5' : 'translate-x-0'
+                                                        }`} />
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* Negative Prompt */}
+                                        <div>
+                                            <label className="text-[10px] text-zinc-500 block mb-1">Negative Prompt (Optional)</label>
+                                            <textarea
+                                                value={replicateVideoSettings.negativePrompt || ''}
+                                                onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, negativePrompt: e.target.value })}
+                                                placeholder="Describe what you don't want to see..."
+                                                className="w-full bg-zinc-900 text-white p-2 text-xs rounded-lg border border-zinc-700 resize-none outline-none focus:border-emerald-500 h-16"
+                                            />
+                                        </div>
+
+                                        {/* Generate Button */}
+                                        <button
+                                            onClick={handleGenerateReplicateVideo}
+                                            disabled={isGeneratingReplicateVideo || (requiresImage && !videoFrames.start)}
+                                            className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 text-sm"
+                                        >
+                                            {isGeneratingReplicateVideo ? (
+                                                <>
+                                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                    Generating...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <FilmIcon className="w-4 h-4" />
+                                                    Generate Video
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+
+
+                    </div>
+                </div>
+                {error && (<div className="p-4 bg-red-900/20 border border-red-500/50 text-red-200 rounded-lg text-sm">{error}</div>)}
+                <button onClick={handleGenerate} disabled={isGenerating || (!prompt && activeSidebar !== 'story')} className="w-full py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-green-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 text-lg group relative z-20">
+                    {isGenerating ? (<><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Synthesizing {count} Variants...</>) : (<><BoltIcon className="w-6 h-6 group-hover:animate-pulse" />{generateButtonText}</>)}
+                </button>
             </div>
-            {error && (<div className="p-4 bg-red-900/20 border border-red-500/50 text-red-200 rounded-lg text-sm">{error}</div>)}
-            <button onClick={handleGenerate} disabled={isGenerating || (!prompt && activeSidebar !== 'story')} className="w-full py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-green-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 text-lg group relative z-20">
-                {isGenerating ? (<><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Synthesizing {count} Variants...</>) : (<><BoltIcon className="w-6 h-6 group-hover:animate-pulse" />{generateButtonText}</>)}
-            </button>
-          </div>
-      </div>
-    </div>
-  );
+
+
+            <div className={`flex-none bg-zinc-900 border-l border-zinc-800 transition-all duration-300 ease-in-out flex flex-col overflow-hidden ${activeSidebar === 'settings' ? 'w-80 shadow-2xl opacity-100' : 'w-0 opacity-0 border-none'}`}>
+                {activeSidebar === 'settings' && (
+                    <div className="flex-1 p-3 overflow-y-auto space-y-3 pb-24 scrollbar-hide min-w-0">
+                        <div className="flex items-center gap-3 mb-2 cursor-pointer hover:opacity-80 transition" onClick={() => toggleSidebar('settings')}><AdjustmentsHorizontalIcon className="w-6 h-6 text-cyan-400" /><h3 className="font-bold text-white text-base">Studio Settings</h3></div>
+
+                        <div className="space-y-2">
+
+                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider block mb-2">Format</label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><span className="text-xs text-zinc-400 mb-1 block">Aspect Ratio</span><select value={settings.aspectRatio} onChange={(e) => setSettings({ ...settings, aspectRatio: e.target.value as AspectRatio })} className="w-full bg-zinc-900 text-white p-2.5 rounded-lg border border-zinc-800 outline-none focus:border-green-500 text-sm"><option value="Auto">Auto</option><option value="1:1">1:1 (Square)</option><option value="16:9">16:9 (Landscape)</option><option value="9:16">9:16 (Portrait)</option><option value="4:3">4:3 (Standard)</option><option value="3:4">3:4 (Portrait)</option><option value="21:9">21:9 (Ultrawide)</option><option value="3:2">3:2 (Classic 35mm)</option><option value="2:3">2:3 (Portrait 35mm)</option><option value="5:4">5:4 (Medium Format)</option><option value="4:5">4:5 (Portrait Medium)</option></select></div>
+                                <div><span className="text-xs text-zinc-400 mb-1 block">Resolution</span><select value={settings.imageSize} onChange={(e) => setSettings({ ...settings, imageSize: e.target.value as ImageSize })} className="w-full bg-zinc-900 text-white p-2.5 rounded-lg border border-zinc-800 outline-none focus:border-green-500 text-sm">{['1K', '2K', '4K'].map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                            </div>
+
+                            <div className="pt-4 border-t border-zinc-800">
+                                <div className="flex justify-between items-center mb-2"><label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Reference Images</label><span className="text-[10px] text-zinc-500">{settings.referenceImages.length}/4</span></div>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {settings.referenceImages.map((img, idx) => (<div key={idx} className="relative aspect-square rounded-lg overflow-hidden group border border-zinc-700 bg-zinc-900"><img src={img} alt="Ref" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" /><button onClick={() => handleRemoveReferenceImage(idx)} className="absolute top-1 right-1 bg-black/70 hover:bg-red-500/80 p-1 rounded-full text-white backdrop-blur-sm transition" title="Remove"><XMarkIcon className="w-3 h-3" /></button></div>))}
+                                    {settings.referenceImages.length < 4 && (
+                                        <>
+                                            <button
+                                                onClick={handleUseLastRender}
+                                                disabled={generatedImages.length === 0}
+                                                className="aspect-square rounded-lg border border-dashed border-zinc-700 hover:border-indigo-500/50 hover:bg-zinc-800/50 transition cursor-pointer flex flex-col items-center justify-center text-zinc-500 hover:text-indigo-400 group disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-zinc-700 disabled:hover:text-zinc-500"
+                                                title={generatedImages.length === 0 ? "No images generated yet" : "Use last generated image"}
+                                            >
+                                                <ArrowDownTrayIcon className="w-5 h-5 mb-1 group-hover:scale-110 transition" />
+                                                <span className="text-[9px]">Use Last</span>
+                                            </button>
+                                            <label className="aspect-square rounded-lg border border-dashed border-zinc-700 hover:border-green-500/50 hover:bg-zinc-800/50 transition cursor-pointer flex flex-col items-center justify-center text-zinc-500 hover:text-green-400 group"><PlusIcon className="w-5 h-5 mb-1 group-hover:scale-110 transition" /><span className="text-[9px]">Add Image</span><input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} /></label>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider block mb-2">Cinematography</label>
+                            <div className="grid grid-cols-1 gap-3">
+                                <CameraControls settings={settings.cameraControls} onChange={(newCam) => setSettings({ ...settings, cameraControls: newCam })} />
+                                <div className="grid grid-cols-2 gap-3">
+                                    <select value={settings.lighting} onChange={(e) => setSettings({ ...settings, lighting: e.target.value })} disabled={settings.relight?.enabled} className={`w-full bg-zinc-900 text-white p-2.5 rounded-lg border border-zinc-800 outline-none focus:border-green-500 text-sm ${settings.relight?.enabled ? 'opacity-50 cursor-not-allowed' : ''}`}><option disabled>Select Lighting</option>{LIGHTING_OPTIONS.map(l => <option key={l} value={l}>{l}</option>)}</select>
+                                    <select value={settings.mood} onChange={(e) => setSettings({ ...settings, mood: e.target.value })} className="w-full bg-zinc-900 text-white p-2.5 rounded-lg border border-zinc-800 outline-none focus:border-green-500 text-sm"><option disabled>Select Mood</option>{MOOD_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}</select>
+                                </div>
+                                {settings.relight?.enabled && (<button onClick={() => toggleSidebar('relight')} className="w-full p-2 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-lg text-xs font-medium flex items-center justify-center gap-2 hover:bg-amber-500/20 transition"><LightBulbIcon className="w-4 h-4" /> Relight Active (Modify in Sidebar)</button>)}
+                                <div className="bg-zinc-900 rounded-xl p-3 border border-zinc-800">
+                                    <div className="flex justify-between items-center mb-2"><span className="text-xs text-zinc-400 font-medium flex items-center gap-1.5"><PaintBrushIcon className="w-3 h-3" />Digital Intermediate (DI)</span></div>
+                                    <div className="space-y-2"><select value={settings.diWorkflow} onChange={(e) => setSettings({ ...settings, diWorkflow: e.target.value })} className="w-full bg-zinc-800 text-white p-2 rounded-lg border border-zinc-700 outline-none focus:border-green-500 text-xs">{DI_WORKFLOW_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select><input type="text" value={settings.customColorGrading} onChange={(e) => setSettings({ ...settings, customColorGrading: e.target.value })} placeholder="Custom LUT / Color Hex / Preset..." className="w-full bg-zinc-800 text-white p-2 rounded-lg border border-zinc-700 outline-none focus:border-green-500 text-xs placeholder-zinc-500" /></div>
+                                </div>
+                                <div className={`bg-zinc-900 rounded-xl p-3 border border-zinc-800 ${hasCustomCamera ? 'opacity-40 pointer-events-none' : ''}`}>
+                                    <div className="flex justify-between items-center mb-2"><span className="text-xs text-zinc-400 font-medium">Camera Shot / Angle (Multi-Select)</span>{!isMergeMode && isPresetComboMode && activeSidebar === 'none' && !hasCustomCamera && (<span className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full animate-pulse">Preset Combo (6 Shots)</span>)}</div>
+                                    <div className="flex flex-wrap gap-2 mb-3">{ANGLE_OPTIONS.map(angle => { const isSelected = settings.cameraAngles.includes(angle); return (<button key={angle} onClick={() => toggleAngle(angle)} className={`px-3 py-1.5 rounded-full text-[10px] md:text-xs font-medium border transition-all duration-200 flex items-center gap-1.5 ${isSelected ? 'bg-green-500/10 text-green-400 border-green-500/50 shadow-sm shadow-green-500/10' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-600 hover:bg-zinc-750'}`}>{isSelected && <CheckCircleIcon className="w-3 h-3" />}{angle}</button>); })}</div>
+                                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-800">
+                                        <button onClick={() => togglePreset(FRAMING_OPTIONS)} className={`p-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-2 transition ${isFramingAllSelected ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/50 shadow shadow-indigo-500/10' : 'bg-zinc-800/50 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600'}`}><VideoCameraIcon className="w-4 h-4" /> By Distance/Framing</button>
+                                        <button onClick={() => togglePreset(CAMERA_ANGLE_OPTIONS)} className={`p-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-2 transition ${isAngleAllSelected ? 'bg-purple-500/20 text-purple-300 border-purple-500/50 shadow shadow-purple-500/10' : 'bg-zinc-800/50 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600'}`}><EyeIcon className="w-4 h-4" /> By Angle</button>
+                                    </div>
+                                    <button onClick={() => setIsMergeMode(!isMergeMode)} disabled={activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0} className={`w-full mt-2 p-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-2 transition ${isMergeMode ? 'bg-teal-600 text-white border-teal-500 shadow-lg shadow-teal-500/20' : 'bg-zinc-800/50 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600'} ${activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}><LinkIcon className="w-4 h-4" />{isMergeMode ? 'Combined Mode Active (Single Image)' : 'Activate Combined Mode'}</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div className={`w-10 flex-none z-30 bg-zinc-950 border-l border-zinc-800 flex flex-col items-center py-2 gap-2 h-full ${activeSidebar === 'settings' ? 'hidden' : ''}`}>
+                <button onClick={() => toggleSidebar('settings')} className={`mt-28 p-1 rounded-lg transition-all relative group ${activeSidebar === 'settings' ? 'text-cyan-400 bg-zinc-800' : 'text-zinc-500 hover:text-cyan-300'}`} title="Studio Settings">
+                    <div className="[writing-mode:vertical-rl] font-bold text-[10px] tracking-widest uppercase whitespace-nowrap h-24 flex items-center justify-center">Studio Settings</div>
+                    {activeSidebar === 'settings' && <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-cyan-500 rounded-r"></div>}
+                </button>
+            </div>
+        </div >
+    );
 };
 
 export default StudioPanel;
