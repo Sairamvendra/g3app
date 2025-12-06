@@ -141,7 +141,7 @@ const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, is
                     {isCopied ? 'Sent!' : 'Use Prompt'}
                   </button>
                 </div>
-                <pre className="bg-black/50 p-3 rounded-lg overflow-x-auto text-green-400 font-mono text-xs border border-zinc-700/50 max-h-[300px] overflow-y-auto whitespace-pre-wrap break-words min-w-0">
+                <pre className="bg-black/50 p-3 rounded-lg overflow-x-auto text-green-400 font-mono text-xs border border-[var(--border-color)]/50 max-h-[300px] overflow-y-auto whitespace-pre-wrap break-words min-w-0">
                   {part.content.trim()}
                 </pre>
               </div>
@@ -157,7 +157,7 @@ const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, is
               onClick={() => copyToClipboard(text, msgIndex)}
               className={`text-[10px] px-2 py-1 rounded border transition-colors flex items-center gap-1 ${copiedIndex === msgIndex
                 ? 'bg-green-500/20 text-green-300 border-green-500/30'
-                : 'bg-white/5 text-zinc-300 border-white/10 hover:bg-white/10'
+                : 'bg-white/5 text-[var(--text-secondary)] border-white/10 hover:bg-white/10'
                 }`}
               data-testid="transfer-btn"
             >
@@ -173,19 +173,19 @@ const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, is
   // Minimal Collapsed View
   if (isCollapsed) {
     return (
-      <div className="flex flex-col h-full bg-zinc-900 border-r border-zinc-800 items-center py-4 w-full">
+      <div className="flex flex-col h-full bg-[var(--bg-panel)] border-r border-[var(--border-color)] items-center py-4 w-full">
         <button
           onClick={toggleCollapse}
-          className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-400 hover:text-white transition mb-4"
+          className="p-2 bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition mb-4"
           title="Expand"
         >
           <ArrowsPointingOutIcon className="w-5 h-5" />
         </button>
         <div className="flex-1 flex flex-col items-center gap-4">
-          <span className="[writing-mode:vertical-rl] text-zinc-500 text-xs font-medium tracking-widest uppercase rotate-180">
+          <span className="[writing-mode:vertical-rl] text-[var(--text-muted)] text-xs font-medium tracking-widest uppercase rotate-180">
             Prompt Architect
           </span>
-          <div className="w-8 h-[1px] bg-zinc-800"></div>
+          <div className="w-8 h-[1px] bg-[var(--border-color)]"></div>
           <button onClick={toggleCollapse} className="p-2 text-indigo-500 hover:text-indigo-400">
             <SparklesIcon className="w-5 h-5" />
           </button>
@@ -195,20 +195,20 @@ const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, is
   }
 
   return (
-    <div className="flex flex-col h-full bg-zinc-900 min-w-0">
+    <div className="flex flex-col h-full bg-[var(--bg-panel)] min-w-0">
       {/* Header */}
-      <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-md sticky top-0 z-10 flex items-start justify-between">
+      <div className="p-4 border-b border-[var(--border-color)] bg-[var(--bg-panel)] backdrop-blur-md sticky top-0 z-10 flex items-start justify-between">
         <div className="flex-1 mr-2 min-w-0">
           <div className="flex items-center space-x-2 mb-2">
             <SparklesIcon className="w-5 h-5 text-indigo-400 flex-shrink-0" />
-            <h2 className="text-lg font-bold text-white truncate">Prompt Architect</h2>
+            <h2 className="text-lg font-bold text-[var(--text-primary)] truncate">Prompt Architect</h2>
           </div>
 
           {/* System Instructions Toggle/Input */}
-          <div className="border border-zinc-800 rounded-lg bg-zinc-900 overflow-hidden transition-all duration-300">
+          <div className="border border-[var(--border-color)] rounded-lg bg-[var(--bg-input)] overflow-hidden transition-all duration-300">
             <button
               onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-              className="w-full flex items-center justify-between p-2 text-xs text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800/50 transition cursor-pointer select-none"
+              className="w-full flex items-center justify-between p-2 text-xs text-[var(--text-secondary)] hover:text-indigo-400 hover:bg-[var(--bg-hover)]/50 transition cursor-pointer select-none"
             >
               <div className="flex items-center gap-2 truncate">
                 <ChevronRightIcon className={`w-3 h-3 transition-transform duration-200 flex-shrink-0 ${isSettingsOpen ? 'rotate-90' : ''}`} />
@@ -217,9 +217,9 @@ const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, is
             </button>
 
             {isSettingsOpen && (
-              <div className="p-2 border-t border-zinc-800 animate-in slide-in-from-top-2 fade-in duration-200">
+              <div className="p-2 border-t border-[var(--border-color)] animate-in slide-in-from-top-2 fade-in duration-200">
                 <textarea
-                  className="w-full bg-zinc-800/50 text-zinc-300 text-xs p-3 rounded border border-zinc-700 focus:border-indigo-500 outline-none resize-y min-h-[100px] mb-2"
+                  className="w-full bg-[var(--bg-card)] text-[var(--text-primary)] text-xs p-3 rounded border border-[var(--border-color)] focus:border-indigo-500 outline-none resize-y min-h-[100px] mb-2"
                   value={systemInstruction}
                   onChange={(e) => setSystemInstruction(e.target.value)}
                   placeholder="Define how the AI should behave..."
@@ -247,7 +247,7 @@ const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, is
         </div>
         <button
           onClick={toggleCollapse}
-          className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition flex-shrink-0"
+          className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition flex-shrink-0"
           title="Minimize Panel"
         >
           <ArrowsPointingInIcon className="w-4 h-4" />
@@ -260,7 +260,7 @@ const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, is
           <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[95%] rounded-2xl p-4 min-w-0 ${msg.role === 'user'
               ? 'bg-indigo-600 text-white rounded-br-none'
-              : 'bg-zinc-800 text-zinc-200 rounded-bl-none border border-zinc-700'
+              : 'bg-[var(--bg-card)] text-[var(--text-primary)] rounded-bl-none border border-[var(--border-color)]'
               }`}>
               <div className="text-sm leading-relaxed font-light break-words">
                 {msg.role === 'model' ? renderMessageContent(msg.text, idx) : msg.text}
@@ -270,7 +270,7 @@ const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, is
         ))}
         {isThinking && (
           <div className="flex justify-start animate-pulse">
-            <div className="bg-zinc-800/50 text-indigo-400 px-4 py-2 rounded-full text-xs flex items-center gap-2 border border-zinc-700/50">
+            <div className="bg-[var(--bg-card)] text-indigo-400 px-4 py-2 rounded-full text-xs flex items-center gap-2 border border-[var(--border-color)]">
               <SparklesIcon className="w-3 h-3 animate-spin" />
               AI is Thinking...
             </div>
@@ -280,14 +280,14 @@ const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, is
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-zinc-900 border-t border-zinc-800 min-w-0">
+      <div className="p-4 bg-[var(--bg-panel)] border-t border-[var(--border-color)] min-w-0">
         {storyboard && (
-          <div className="flex items-center gap-2 mb-2 bg-zinc-800 p-2 rounded-lg w-fit border border-zinc-700 max-w-full">
-            <PhotoIcon className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-            <span className="text-xs text-zinc-300 truncate">{storyboard.name}</span>
+          <div className="flex items-center gap-2 mb-2 bg-[var(--bg-input)] p-2 rounded-lg w-fit border border-[var(--border-color)] max-w-full">
+            <PhotoIcon className="w-4 h-4 text-[var(--text-muted)] flex-shrink-0" />
+            <span className="text-xs text-[var(--text-secondary)] truncate">{storyboard.name}</span>
             <button
               onClick={() => setStoryboard(null)}
-              className="text-zinc-500 hover:text-red-400 ml-2 flex-shrink-0"
+              className="text-[var(--text-muted)] hover:text-red-400 ml-2 flex-shrink-0"
             >
               ×
             </button>
@@ -296,7 +296,7 @@ const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, is
         <div className="flex items-end gap-2 relative">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="p-3 text-zinc-400 hover:text-indigo-400 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition flex-shrink-0"
+            className="p-3 text-[var(--text-muted)] hover:text-indigo-400 bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] rounded-xl transition flex-shrink-0"
             title="Upload Storyboard/Reference"
           >
             <PhotoIcon className="w-5 h-5" />
@@ -314,7 +314,7 @@ const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, is
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Describe your idea..."
-            className="flex-1 bg-zinc-800 text-white rounded-xl p-3 max-h-32 min-h-[48px] resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50 border border-zinc-700 text-sm font-light min-w-0"
+            className="flex-1 bg-[var(--bg-input)] text-[var(--text-primary)] rounded-xl p-3 max-h-32 min-h-[48px] resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50 border border-[var(--border-color)] text-sm font-light min-w-0"
           />
 
           <button

@@ -1,0 +1,67 @@
+/* Tailwind injected by CDN */
+
+:root {
+    /* Brand Colors */
+    --brand-primary: #6366f1;
+    /* Indigo 500 */
+    --brand-hover: #4f46e5;
+    /* Indigo 600 */
+
+    /* Dark Theme (Default) */
+    --bg-main: #09090b;
+    /* Zinc 950 */
+    --bg-panel: #09090b;
+    /* Zinc 950 */
+    --bg-card: #18181b;
+    /* Zinc 900 */
+    --bg-input: #27272a;
+    /* Zinc 800 */
+    --bg-hover: #27272a;
+    /* Zinc 800 */
+
+    --text-primary: #f4f4f5;
+    /* Zinc 100 */
+    --text-secondary: #a1a1aa;
+    /* Zinc 400 */
+    --text-muted: #52525b;
+    /* Zinc 600 */
+
+    --border-color: #27272a;
+    /* Zinc 800 */
+    --border-hover: #3f3f46;
+    /* Zinc 700 */
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Transition utility for smooth theme switching */
+*,
+*::before,
+*::after {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+}
+
+/* Overwrite scrollbar for clean look */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}

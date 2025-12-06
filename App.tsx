@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PromptArchitect from './components/PromptArchitect';
 import StudioPanel from './components/StudioPanel';
+
 import { ChevronRightIcon } from '@heroicons/react/24/solid';
 
 const App: React.FC = () => {
   const [transferredPrompt, setTransferredPrompt] = useState<string>('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  
+
   // Resizable Sidebar State
   const [sidebarWidth, setSidebarWidth] = useState(420);
   const [isResizing, setIsResizing] = useState(false);
@@ -58,23 +59,24 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col md:flex-row bg-zinc-950 text-zinc-100">
-      
+    <div className="h-screen w-screen overflow-hidden flex flex-col md:flex-row bg-[var(--bg-main)] text-[var(--text-primary)] transition-colors duration-300">
+
+
+
       {/* Left Panel: Prompt Architect */}
-      <div 
-        className={`relative z-20 border-r border-zinc-800 shadow-2xl shadow-black/50 flex-none ${
+      <div
+        className={`relative z-20 border-r border-[var(--border-color)] shadow-2xl flex-none ${
           // Only animate when NOT resizing to avoid jitter
           isResizing ? '' : 'transition-all duration-300 ease-out'
-        } ${
-          !isSidebarOpen ? 'md:w-auto w-full h-12 md:h-full' : 'w-full md:w-auto'
-        }`}
+          } ${!isSidebarOpen ? 'md:w-auto w-full h-12 md:h-full' : 'w-full md:w-auto'
+          }`}
         style={{
-             width: (isDesktop && isSidebarOpen) ? sidebarWidth : undefined,
-             height: (!isDesktop && isSidebarOpen) ? '50%' : undefined
+          width: (isDesktop && isSidebarOpen) ? sidebarWidth : undefined,
+          height: (!isDesktop && isSidebarOpen) ? '50%' : undefined
         }}
       >
-        <PromptArchitect 
-          onPromptFinalized={handlePromptFinalized} 
+        <PromptArchitect
+          onPromptFinalized={handlePromptFinalized}
           isCollapsed={!isSidebarOpen}
           toggleCollapse={() => setIsSidebarOpen(!isSidebarOpen)}
         />
@@ -82,34 +84,34 @@ const App: React.FC = () => {
 
       {/* Resize Handle (Desktop Only) */}
       {isDesktop && isSidebarOpen && (
-        <div 
+        <div
           onMouseDown={startResizing}
-          className={`w-1 h-full cursor-col-resize hover:bg-indigo-500 transition-colors z-30 flex-none bg-zinc-900 border-r border-zinc-800 ${isResizing ? 'bg-indigo-500' : ''}`}
+          className={`w-1 h-full cursor-col-resize hover:bg-[var(--brand-primary)] transition-colors z-30 flex-none bg-[var(--bg-panel)] border-r border-[var(--border-color)] ${isResizing ? 'bg-[var(--brand-primary)]' : ''}`}
         />
       )}
 
       {/* Right Panel: Studio */}
-      <div className="flex-1 h-full bg-zinc-950 relative overflow-hidden flex flex-col min-w-0">
+      <div className="flex-1 h-full bg-[var(--bg-main)] relative overflow-hidden flex flex-col min-w-0">
         {/* Background Grid Pattern */}
-        <div className="absolute inset-0 z-0 opacity-20 pointer-events-none" 
-             style={{ 
-               backgroundImage: 'radial-gradient(#3f3f46 1px, transparent 1px)', 
-               backgroundSize: '24px 24px' 
-             }}>
+        <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none"
+          style={{
+            backgroundImage: 'radial-gradient(var(--text-primary) 1px, transparent 1px)',
+            backgroundSize: '24px 24px'
+          }}>
         </div>
-        
+
         {/* Mobile Toggle Trigger (when sidebar is collapsed on mobile) */}
         {!isSidebarOpen && !isDesktop && (
-           <button 
-             onClick={() => setIsSidebarOpen(true)}
-             className="absolute top-4 left-4 z-50 md:hidden bg-zinc-800 p-2 rounded-lg text-white shadow-lg border border-zinc-700"
-           >
-             <ChevronRightIcon className="w-5 h-5" />
-           </button>
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="absolute top-4 left-4 z-50 md:hidden bg-[var(--bg-card)] p-2 rounded-lg text-[var(--text-primary)] shadow-lg border border-[var(--border-color)]"
+          >
+            <ChevronRightIcon className="w-5 h-5" />
+          </button>
         )}
 
         <div className="relative z-10 flex-1 h-full min-w-0">
-            <StudioPanel initialPrompt={transferredPrompt} />
+          <StudioPanel initialPrompt={transferredPrompt} />
         </div>
       </div>
     </div>
