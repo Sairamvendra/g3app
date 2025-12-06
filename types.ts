@@ -6,7 +6,7 @@ export interface Message {
 }
 
 export type AspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9' | '21:9' | '3:2' | '2:3' | '5:4' | '4:5' | 'Auto';
-export type ImageSize = '1K' | '2K' | '4K';
+export type ImageSize = '1K' | '2K' | '4K' | 'match_input_image' | '0.5 MP' | '1 MP' | '2 MP' | '4 MP';
 
 export interface CameraSettings {
   rotation: number;      // -90 to 90
@@ -38,6 +38,13 @@ export interface RelightSettings {
   };
 }
 
+export interface FluxSettings {
+  safety_tolerance: number; // 1-5, default 2
+  steps: number; // 4-50, default 28
+  guidance: number; // 0-10, default 3.5
+  output_quality: number; // 0-100, default 80
+  interval: number; // 1-4, default 2 (for fast mode, maybe not exposed)
+}
 export interface CharacterReference {
   name: string;
   imageBase64: string;
@@ -51,7 +58,10 @@ export interface VideoSettings {
   motionPrompt: string;
 }
 
+
 export interface ImageSettings {
+  model?: 'google/nano-banana-pro' | 'black-forest-labs/flux-2-flex';
+  fluxSettings?: FluxSettings;
   aspectRatio: AspectRatio;
   imageSize: ImageSize;
   lighting: string;
@@ -110,7 +120,16 @@ export const DEFAULT_RELIGHT_SETTINGS: RelightSettings = {
   }
 };
 
+
 export const DEFAULT_SETTINGS: ImageSettings = {
+  model: 'google/nano-banana-pro',
+  fluxSettings: {
+    safety_tolerance: 2,
+    steps: 28,
+    guidance: 3.5,
+    output_quality: 90,
+    interval: 2
+  },
   aspectRatio: '16:9',
   imageSize: '1K',
   lighting: 'Natural',

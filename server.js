@@ -135,8 +135,23 @@ app.post('/api/generate/image', async (req, res) => {
       input.aspect_ratio = aspect_ratio || '1:1';
       input.resolution = image_size || '1 MP';
 
-      if (reference_image) {
+      if (req.body.image_input) {
+        input.input_images = req.body.image_input;
+      } else if (reference_image) {
         input.input_images = [reference_image];
+      }
+
+      // Handle 21:9 Aspect Ratio (Not natively supported by Flux)
+      if (aspect_ratio === '21:9') {
+        input.aspect_ratio = 'custom';
+        // Auto-calculate dimensions if not provided
+        if (!custom_width || !custom_height) {
+          // Default to 1536x640 (1MP) or clamp based on image_size if I had that logic here.
+          // For simplicity in server, let's map standard sizes:
+          if (image_size === '0.5 MP') { input.width = 1088; input.height = 464; }
+          else if (image_size === '2 MP' || image_size === '4 MP') { input.width = 2048; input.height = 880; }
+          else { input.width = 1536; input.height = 640; } // 1 MP default
+        }
       }
 
       // Custom dimensions (only when aspect_ratio is 'custom')

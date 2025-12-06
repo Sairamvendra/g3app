@@ -740,6 +740,22 @@ NEGATIVE PROMPT / EXCLUSIONS:
 - No visible lighting equipment in the shot.
   `.trim();
 
+  // Helper for Flux dimensions
+  const getFluxDimensions = (size: string) => {
+    // 21:9 ratio approx 2.33
+    // Max dimension for Flux is 2048. 
+    // For 21:9, Width is the limiting factor.
+    switch (size) {
+      case '0.5 MP': return { width: 1088, height: 464 };
+      case '1 MP': return { width: 1536, height: 640 };
+      case '2 MP':
+      case '4 MP':
+        // 2MP and 4MP would exceed 2048 width, so we clamp to max allowed
+        return { width: 2048, height: 880 };
+      default: return { width: 1536, height: 640 };
+    }
+  };
+
   // Map aspect ratio to nano-banana-pro format
   const aspectRatioMap: Record<string, string> = {
     '1:1': '1:1',
@@ -762,6 +778,11 @@ NEGATIVE PROMPT / EXCLUSIONS:
     output_format: 'png',
     safety_filter_level: 'block_only_high',
   };
+
+  // Special handling for Flux 21:9
+  if (settings.model === 'black-forest-labs/flux-2-flex' && settings.aspectRatio === '21:9') {
+    input.aspect_ratio = 'custom';
+  }
 
   // Add reference images if provided
   const imageInputs: string[] = [];
@@ -806,8 +827,16 @@ NEGATIVE PROMPT / EXCLUSIONS:
         image_size: input.resolution,
         // Send all reference images (characters + style)
         image_input: input.image_input,
-        model: 'google/nano-banana-pro',
+        model: settings.model || 'google/nano-banana-pro',
         output_format: input.output_format,
+        // Flux parameters
+        steps: settings.fluxSettings?.steps,
+        guidance: settings.fluxSettings?.guidance,
+        output_quality: settings.fluxSettings?.output_quality,
+        safety_tolerance: settings.fluxSettings?.safety_tolerance,
+        // Custom dimensions for 21:9 on Flux
+        custom_width: (settings.model === 'black-forest-labs/flux-2-flex' && settings.aspectRatio === '21:9') ? getFluxDimensions(settings.imageSize).width : undefined,
+        custom_height: (settings.model === 'black-forest-labs/flux-2-flex' && settings.aspectRatio === '21:9') ? getFluxDimensions(settings.imageSize).height : undefined,
       }),
     });
 

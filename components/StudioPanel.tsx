@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AspectRatio, ImageSize, ImageSettings, GeneratedImage, DEFAULT_SETTINGS, LIGHTING_OPTIONS, ANGLE_OPTIONS, MOOD_OPTIONS, FRAMING_OPTIONS, CAMERA_ANGLE_OPTIONS, DI_WORKFLOW_OPTIONS, StoryFlowState, Character, SidebarMode, RelightLight, CharacterReference, VideoSettings, VIDEO_MODELS, VIDEO_DURATIONS, VIDEO_FRAMERATES, ReplicateVideoSettings, REPLICATE_VIDEO_MODELS } from '../types';
 import { generateImageWithReplicate, analyzeStoryboardFlowWithReplicate, generatePersonaPromptWithReplicate, improveVideoPromptWithReplicate, generateVideoWithReplicate, hasValidReplicateApiKey, REPLICATE_VIDEO_MODELS as REPLICATE_MODELS } from '../services/replicateService';
-import { ArrowDownTrayIcon, BoltIcon, PhotoIcon, CheckCircleIcon, XMarkIcon, PlusIcon, VideoCameraIcon, EyeIcon, LinkIcon, PaintBrushIcon, SparklesIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, UserGroupIcon, TrashIcon, CloudArrowDownIcon, LightBulbIcon, FilmIcon, ChevronUpIcon, ChevronDownIcon, PencilSquareIcon, PlayIcon, KeyIcon, ExclamationTriangleIcon, AdjustmentsHorizontalIcon, RectangleGroupIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, BoltIcon, PhotoIcon, CheckCircleIcon, XMarkIcon, PlusIcon, VideoCameraIcon, EyeIcon, LinkIcon, PaintBrushIcon, SparklesIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, UserGroupIcon, TrashIcon, CloudArrowDownIcon, LightBulbIcon, FilmIcon, ChevronUpIcon, ChevronDownIcon, PencilSquareIcon, PlayIcon, KeyIcon, ExclamationTriangleIcon, AdjustmentsHorizontalIcon, RectangleGroupIcon, CubeIcon, QueueListIcon, PaperClipIcon } from '@heroicons/react/24/outline';
 import { UserIcon } from '@heroicons/react/24/solid';
 import CameraControls from './OrbitCamera';
 import RelightPanel from './RelightPanel';
@@ -26,6 +26,8 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
     const [isMergeMode, setIsMergeMode] = useState(false);
     const [storyPromptSaveSuccess, setStoryPromptSaveSuccess] = useState(false);
     const [activeSidebar, setActiveSidebar] = useState<SidebarMode>('none');
+    const [showSettings, setShowSettings] = useState(false);
+    const [isSettingsPinned, setIsSettingsPinned] = useState(false);
     const [draggingLight, setDraggingLight] = useState<string | null>(null);
     const previewRef = useRef<HTMLDivElement>(null);
 
@@ -492,7 +494,29 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
     else if (isPresetComboMode) { count = 6; generateButtonText = "Generate (6) Cinematic Combos"; }
     else { count = settings.cameraAngles.length || 1; generateButtonText = `Generate (${count})`; }
 
-    const toggleSidebar = (mode: SidebarMode) => { setActiveSidebar(activeSidebar === mode ? 'none' : mode); };
+    const toggleSidebar = (mode: SidebarMode) => {
+        if (mode === 'settings') {
+            const willShow = !showSettings;
+            setShowSettings(willShow);
+            // If opening settings and not pinned, close left sidebar?
+            // User did not ask for this specific behavior, but standard UI patterns suggest mutual exclusivity unless pinned.
+            // However, sticking to "Pin keeps it open" implies unpinned might close.
+            if (willShow && !isSettingsPinned) {
+                setActiveSidebar('none');
+            }
+        } else {
+            // Left sidebar mode
+            if (activeSidebar === mode) {
+                setActiveSidebar('none');
+            } else {
+                setActiveSidebar(mode);
+                // If opening left sidebar, close settings unless pinned
+                if (!isSettingsPinned) {
+                    setShowSettings(false);
+                }
+            }
+        }
+    };
 
     const getClockPosition = (x: number, y: number) => {
         const dx = x - 50;
@@ -1030,17 +1054,113 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
             }
 
 
-            <div className={`flex-none bg-[var(--bg-panel)] border-l border-[var(--border-color)] transition-all duration-300 ease-in-out flex flex-col overflow-hidden ${activeSidebar === 'settings' ? 'w-80 shadow-2xl opacity-100' : 'w-0 opacity-0 border-none'}`}>
-                {activeSidebar === 'settings' && (
+            <div className={`flex-none bg-[var(--bg-panel)] border-l border-[var(--border-color)] transition-all duration-300 ease-in-out flex flex-col overflow-hidden ${showSettings ? 'w-80 shadow-2xl opacity-100' : 'w-0 opacity-0 border-none'}`}>
+                {showSettings && (
                     <div className="flex-1 p-3 overflow-y-auto space-y-3 pb-24 scrollbar-hide min-w-0">
-                        <div className="flex items-center gap-3 mb-2 cursor-pointer hover:opacity-80 transition" onClick={() => toggleSidebar('settings')}><AdjustmentsHorizontalIcon className="w-6 h-6 text-cyan-400" /><h3 className="font-bold text-[var(--text-primary)] text-base">Studio Settings</h3></div>
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition" onClick={() => toggleSidebar('settings')}>
+                                <AdjustmentsHorizontalIcon className="w-6 h-6 text-cyan-400" />
+                                <h3 className="font-bold text-[var(--text-primary)] text-base">Studio Settings</h3>
+                            </div>
+                            <button
+                                onClick={() => setIsSettingsPinned(!isSettingsPinned)}
+                                className={`p-1.5 rounded-lg transition-colors ${isSettingsPinned ? 'bg-cyan-500/20 text-cyan-400' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'}`}
+                                title={isSettingsPinned ? "Unpin Settings" : "Pin Settings"}
+                            >
+                                <PaperClipIcon className={`w-4 h-4 ${isSettingsPinned ? 'text-cyan-400' : ''}`} />
+                            </button>
+                        </div>
 
                         <div className="space-y-2">
+
+
+                            <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-2">Model</label>
+                            <div className="bg-[var(--bg-input)] p-3 rounded-xl border border-[var(--border-color)] mb-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <CubeIcon className="w-4 h-4 text-[var(--text-secondary)]" />
+                                    <select
+                                        value={settings.model || 'google/nano-banana-pro'}
+                                        onChange={(e) => {
+                                            const newModel = e.target.value as any;
+                                            const defaultSize = newModel === 'black-forest-labs/flux-2-flex' ? '1 MP' : '1K';
+                                            setSettings({ ...settings, model: newModel, imageSize: defaultSize });
+                                        }}
+                                        className="w-full bg-transparent text-[var(--text-primary)] text-sm font-medium outline-none"
+                                    >
+                                        <option value="google/nano-banana-pro">Nano Banana Pro</option>
+                                        <option value="black-forest-labs/flux-2-flex">Flux 2.1 Flex</option>
+                                    </select>
+                                </div>
+                                <div className="text-[10px] text-[var(--text-muted)]">
+                                    {settings.model === 'black-forest-labs/flux-2-flex' ? 'Advanced model with high fidelity.' : 'Fast, efficient standard model.'}
+                                </div>
+                            </div>
+
+                            {settings.model === 'black-forest-labs/flux-2-flex' && settings.fluxSettings && (
+                                <div className="space-y-3 mb-4 p-3 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)]">
+                                    <h4 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2"><SparklesIcon className="w-3 h-3 text-purple-400" /> Flux Settings</h4>
+
+                                    <div>
+                                        <div className="flex justify-between text-[10px] text-[var(--text-secondary)] mb-1">
+                                            <span>Safety Tolerance</span>
+                                            <span>{settings.fluxSettings.safety_tolerance}</span>
+                                        </div>
+                                        <input type="range" min="1" max="5" step="1" value={settings.fluxSettings.safety_tolerance} onChange={(e) => setSettings({ ...settings, fluxSettings: { ...settings.fluxSettings!, safety_tolerance: parseInt(e.target.value) } })} className="w-full" />
+                                    </div>
+
+                                    <div>
+                                        <div className="flex justify-between text-[10px] text-[var(--text-secondary)] mb-1">
+                                            <span>Steps</span>
+                                            <span>{settings.fluxSettings.steps}</span>
+                                        </div>
+                                        <input type="range" min="4" max="50" step="1" value={settings.fluxSettings.steps} onChange={(e) => setSettings({ ...settings, fluxSettings: { ...settings.fluxSettings!, steps: parseInt(e.target.value) } })} className="w-full" />
+                                    </div>
+
+                                    <div>
+                                        <div className="flex justify-between text-[10px] text-[var(--text-secondary)] mb-1">
+                                            <span>Guidance</span>
+                                            <span>{settings.fluxSettings.guidance}</span>
+                                        </div>
+                                        <input type="range" min="0" max="10" step="0.5" value={settings.fluxSettings.guidance} onChange={(e) => setSettings({ ...settings, fluxSettings: { ...settings.fluxSettings!, guidance: parseFloat(e.target.value) } })} className="w-full" />
+                                    </div>
+
+                                    <div>
+                                        <div className="flex justify-between text-[10px] text-[var(--text-secondary)] mb-1">
+                                            <span>Output Quality</span>
+                                            <span>{settings.fluxSettings.output_quality}</span>
+                                        </div>
+                                        <input type="range" min="0" max="100" step="1" value={settings.fluxSettings.output_quality} onChange={(e) => setSettings({ ...settings, fluxSettings: { ...settings.fluxSettings!, output_quality: parseInt(e.target.value) } })} className="w-full" />
+                                    </div>
+                                </div>
+                            )}
 
                             <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-2">Format</label>
                             <div className="grid grid-cols-2 gap-4">
                                 <div><span className="text-xs text-[var(--text-secondary)] mb-1 block">Aspect Ratio</span><select value={settings.aspectRatio} onChange={(e) => setSettings({ ...settings, aspectRatio: e.target.value as AspectRatio })} className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] p-2.5 rounded-lg border border-[var(--border-color)] outline-none focus:border-green-500 text-sm"><option value="Auto">Auto</option><option value="1:1">1:1 (Square)</option><option value="16:9">16:9 (Landscape)</option><option value="9:16">9:16 (Portrait)</option><option value="4:3">4:3 (Standard)</option><option value="3:4">3:4 (Portrait)</option><option value="21:9">21:9 (Ultrawide)</option><option value="3:2">3:2 (Classic 35mm)</option><option value="2:3">2:3 (Portrait 35mm)</option><option value="5:4">5:4 (Medium Format)</option><option value="4:5">4:5 (Portrait Medium)</option></select></div>
-                                <div><span className="text-xs text-[var(--text-secondary)] mb-1 block">Resolution</span><select value={settings.imageSize} onChange={(e) => setSettings({ ...settings, imageSize: e.target.value as ImageSize })} className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] p-2.5 rounded-lg border border-[var(--border-color)] outline-none focus:border-green-500 text-sm">{['1K', '2K', '4K'].map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                                <div>
+                                    <span className="text-xs text-[var(--text-secondary)] mb-1 block">Resolution</span>
+                                    {settings.model === 'black-forest-labs/flux-2-flex' ? (
+                                        <select
+                                            value={settings.imageSize}
+                                            onChange={(e) => setSettings({ ...settings, imageSize: e.target.value as ImageSize })}
+                                            className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] p-2.5 rounded-lg border border-[var(--border-color)] outline-none focus:border-green-500 text-sm"
+                                        >
+                                            <option value="match_input_image">Match Input Image</option>
+                                            <option value="0.5 MP">0.5 MP</option>
+                                            <option value="1 MP">1 MP</option>
+                                            <option value="2 MP">2 MP</option>
+                                            <option value="4 MP">4 MP</option>
+                                        </select>
+                                    ) : (
+                                        <select
+                                            value={settings.imageSize}
+                                            onChange={(e) => setSettings({ ...settings, imageSize: e.target.value as ImageSize })}
+                                            className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] p-2.5 rounded-lg border border-[var(--border-color)] outline-none focus:border-green-500 text-sm"
+                                        >
+                                            {['1K', '2K', '4K'].map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="pt-4 border-t border-[var(--border-color)]">
@@ -1091,10 +1211,10 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                 )}
             </div>
 
-            <div className={`w-10 flex-none z-30 bg-[var(--bg-main)] border-l border-[var(--border-color)] flex flex-col items-center py-2 gap-2 h-full ${activeSidebar === 'settings' ? 'hidden' : ''}`}>
-                <button onClick={() => toggleSidebar('settings')} className={`mt-28 p-1 rounded-lg transition-all relative group ${activeSidebar === 'settings' ? 'text-cyan-400 bg-[var(--bg-hover)]' : 'text-[var(--text-secondary)] hover:text-cyan-300'}`} title="Studio Settings">
+            <div className={`w-10 flex-none z-30 bg-[var(--bg-main)] border-l border-[var(--border-color)] flex flex-col items-center py-2 gap-2 h-full ${showSettings ? 'hidden' : ''}`}>
+                <button onClick={() => toggleSidebar('settings')} className={`mt-28 p-1 rounded-lg transition-all relative group ${showSettings ? 'text-cyan-400 bg-[var(--bg-hover)]' : 'text-[var(--text-secondary)] hover:text-cyan-300'}`} title="Studio Settings">
                     <div className="[writing-mode:vertical-rl] font-bold text-[10px] tracking-widest uppercase whitespace-nowrap h-24 flex items-center justify-center">Studio Settings</div>
-                    {activeSidebar === 'settings' && <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-cyan-500 rounded-r"></div>}
+                    {showSettings && <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-cyan-500 rounded-r"></div>}
                 </button>
             </div>
         </div >
