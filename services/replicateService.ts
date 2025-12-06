@@ -848,3 +848,72 @@ NEGATIVE PROMPT / EXCLUSIONS:
     throw new Error(error.message || 'Unknown error during image generation');
   }
 };
+
+// ============================================================================
+// SMART BANNERS (google/nano-banana-pro)
+// ============================================================================
+
+export const BANNER_SYSTEM_PROMPT = `
+ROLE: Banner Reframing Specialist
+MISSION: Adapt banner to new aspect ratio while preserving ALL content integrity.
+
+ABSOLUTE RULES (NEVER BREAK):
+- Never alter, remove, or crop: text, fonts, characters, faces, logos, CTAs, products, infographics.
+- Never generate new objects, elements, or content.
+- Never change colors, typography, or brand elements.
+
+PERMITTED ACTIONS:
+- Reposition existing elements for new canvas.
+- Extend/duplicate backgrounds (solid colors, gradients, patterns).
+- Content-aware fill on empty/background areas ONLY.
+- Adjust spacing between element groups.
+
+DECISION FRAMEWORK:
+When space is limited, prioritize: CTA Button > Main Headline > Talent/Characters > Brand Logo > Supporting Text.
+`.trim();
+
+export const reframeBannerWithReplicate = async (
+  bannerImage: string,
+  aspectRatio: string
+): Promise<string> => {
+  // Client-side check removed to allow server-side API key usage
+  // if (!hasValidReplicateApiKey()) {
+  //   throw new Error('Replicate API key is required.');
+  // }
+
+  try {
+    console.log('Reframing banner via server...', { aspectRatio });
+
+    const response = await fetch('http://localhost:3002/api/generate/image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/nano-banana-pro',
+        prompt: BANNER_SYSTEM_PROMPT,
+        reference_image: bannerImage, // This will be mapped to 'image' input in server.js for generic models
+        image_input: [bannerImage], // Providing both just in case, server prefers image_input if present
+        aspect_ratio: aspectRatio,
+        image_size: '2K', // Default high quality
+        output_format: 'png',
+        safety_filter_level: 'block_only_high'
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || `Server error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!data.success || !data.result) {
+      throw new Error(data.error || 'Failed to generate banner');
+    }
+
+    return data.result;
+  } catch (error: any) {
+    console.error('Banner reframing error:', error);
+    throw new Error(`Banner reframing failed: ${error.message || 'Unknown error'}`);
+  }
+};
