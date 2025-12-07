@@ -946,3 +946,53 @@ export const reframeBannerWithReplicate = async (
     throw new Error(`Banner reframing failed: ${error.message || 'Unknown error'}`);
   }
 };
+
+export const editBannerWithReplicate = async (
+  bannerImage: string,
+  userInstruction: string
+): Promise<string> => {
+  try {
+    console.log('Editing banner via server...', { instruction: userInstruction });
+
+    const prompt = `
+ROLE: Image Editor
+TASK: Edit the input image based on the user's instruction.
+USER INSTRUCTION: "${userInstruction}"
+
+GUIDELINES:
+- Maintain the overall composition and style of the original image unless explicitly asked to change it.
+- Seamlessly blend any new elements.
+- Return a high-quality updated version of the image.
+`.trim();
+
+    const response = await fetch('http://localhost:3002/api/generate/image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/nano-banana-pro',
+        prompt: prompt,
+        image_input: [bannerImage], // Helper logic in server.js maps this to inputs
+        image_size: '2K',
+        output_format: 'png',
+        safety_filter_level: 'block_only_high'
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || `Server error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!data.success || !data.result) {
+      throw new Error(data.error || 'Failed to edit banner');
+    }
+
+    return data.result;
+  } catch (error: any) {
+    console.error('Banner editing error:', error);
+    throw new Error(`Banner editing failed: ${error.message || 'Unknown error'}`);
+  }
+};

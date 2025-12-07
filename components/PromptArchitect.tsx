@@ -182,7 +182,10 @@ const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, is
           <ArrowsPointingOutIcon className="w-5 h-5" />
         </button>
         <div className="flex-1 flex flex-col items-center gap-4">
-          <span className="[writing-mode:vertical-rl] text-[var(--text-muted)] text-xs font-medium tracking-widest uppercase rotate-180">
+          <span
+            onClick={toggleCollapse}
+            className="[writing-mode:vertical-rl] text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xs font-medium tracking-widest uppercase rotate-180 cursor-pointer transition select-none"
+          >
             Prompt Architect
           </span>
           <div className="w-8 h-[1px] bg-[var(--border-color)]"></div>
@@ -199,9 +202,13 @@ const PromptArchitect: React.FC<PromptArchitectProps> = ({ onPromptFinalized, is
       {/* Header */}
       <div className="p-4 border-b border-[var(--border-color)] bg-[var(--bg-panel)] backdrop-blur-md sticky top-0 z-10 flex items-start justify-between">
         <div className="flex-1 mr-2 min-w-0">
-          <div className="flex items-center space-x-2 mb-2">
-            <SparklesIcon className="w-5 h-5 text-indigo-400 flex-shrink-0" />
-            <h2 className="text-lg font-bold text-[var(--text-primary)] truncate">Prompt Architect</h2>
+          <div
+            onClick={toggleCollapse}
+            className="flex items-center space-x-2 mb-2 cursor-pointer group select-none"
+            title="Collapse Panel"
+          >
+            <SparklesIcon className="w-5 h-5 text-indigo-400 group-hover:text-indigo-300 transition flex-shrink-0" />
+            <h2 className="text-lg font-bold text-[var(--text-primary)] group-hover:text-indigo-300 transition truncate">Prompt Architect</h2>
           </div>
 
           {/* System Instructions Toggle/Input */}

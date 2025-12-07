@@ -892,166 +892,168 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                 )}
             </div >
 
-            {activeSidebar === 'smart-banners' ? (
+            {/* Smart Banners Module (Persisted) */}
+            <div className={`flex-1 min-w-0 ${activeSidebar === 'smart-banners' ? 'block' : 'hidden'}`}>
                 <SmartBanners />
-            ) : (
-                <div className="flex-1 flex flex-col h-full min-w-0 transition-all duration-300">
-                    <div className="p-2 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-none sticky top-0 z-10">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                                <PhotoIcon className="w-5 h-5 text-green-400" />
-                                <h2 className="text-lg font-bold text-[var(--text-primary)]">Visual Studio</h2>
-                                <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20 ml-2">PRO</span>
-                            </div>
+            </div>
+
+            {/* Main Visual Studio Module */}
+            <div className={`flex-1 flex flex-col h-full min-w-0 transition-all duration-300 ${activeSidebar === 'smart-banners' ? 'hidden' : 'flex'}`}>
+                <div className="p-2 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-none sticky top-0 z-10">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                            <PhotoIcon className="w-5 h-5 text-green-400" />
+                            <h2 className="text-lg font-bold text-[var(--text-primary)]">Visual Studio</h2>
+                            <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20 ml-2">PRO</span>
                         </div>
                     </div>
+                </div>
 
-                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-3 gap-3">
-                        <div className="w-full flex-1 min-h-0 bg-[var(--bg-card)] rounded-2xl border-2 border-dashed border-[var(--border-color)] flex flex-col items-center justify-center relative overflow-hidden group select-none shadow-2xl">
-                            <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden bg-[var(--bg-main)]">
-                                {isGenerating || isGeneratingVideo || isGeneratingReplicateVideo ? (
-                                    <div className="flex flex-col items-center justify-center space-y-4">
-                                        <div className="w-16 h-16 border-4 border-[var(--border-color)] border-t-indigo-500 rounded-full animate-spin"></div>
-                                        <p className="text-[var(--text-secondary)] text-sm font-medium animate-pulse">
-                                            {isGeneratingVideo ? 'Synthesizing Veo Video (This may take a minute)...' :
-                                                isGeneratingReplicateVideo ? 'Generating Replicate Video (This may take a minute)...' :
-                                                    'Rendering Scene...'}
-                                        </p>
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-3 gap-3">
+                    <div className="w-full flex-1 min-h-0 bg-[var(--bg-card)] rounded-2xl border-2 border-dashed border-[var(--border-color)] flex flex-col items-center justify-center relative overflow-hidden group select-none shadow-2xl">
+                        <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden bg-[var(--bg-main)]">
+                            {isGenerating || isGeneratingVideo || isGeneratingReplicateVideo ? (
+                                <div className="flex flex-col items-center justify-center space-y-4">
+                                    <div className="w-16 h-16 border-4 border-[var(--border-color)] border-t-indigo-500 rounded-full animate-spin"></div>
+                                    <p className="text-[var(--text-secondary)] text-sm font-medium animate-pulse">
+                                        {isGeneratingVideo ? 'Synthesizing Veo Video (This may take a minute)...' :
+                                            isGeneratingReplicateVideo ? 'Generating Replicate Video (This may take a minute)...' :
+                                                'Rendering Scene...'}
+                                    </p>
+                                </div>
+                            ) : generatedVideoUrl ? (
+                                <div className="relative w-full h-full">
+                                    <video
+                                        src={generatedVideoUrl}
+                                        controls
+                                        className="w-full h-full object-contain"
+                                        autoPlay
+                                        loop
+                                    />
+                                    <button onClick={() => setGeneratedVideoUrl(null)} className="absolute top-4 right-4 bg-black/80 p-2 rounded-full text-white hover:bg-red-500 transition"><XMarkIcon className="w-4 h-4" /></button>
+                                    <div className="absolute bottom-4 left-4 bg-black/80 px-3 py-1 rounded-full text-xs text-emerald-400 font-bold">Veo 3.1</div>
+                                </div>
+                            ) : generatedReplicateVideoUrl ? (
+                                <div className="relative w-full h-full">
+                                    <video
+                                        src={generatedReplicateVideoUrl}
+                                        controls
+                                        className="w-full h-full object-contain"
+                                        autoPlay
+                                        loop
+                                    />
+                                    <button onClick={() => setGeneratedReplicateVideoUrl(null)} className="absolute top-4 right-4 bg-black/80 p-2 rounded-full text-white hover:bg-red-500 transition"><XMarkIcon className="w-4 h-4" /></button>
+                                    <div className="absolute bottom-4 left-4 bg-black/80 px-3 py-1 rounded-full text-xs text-purple-400 font-bold">
+                                        {REPLICATE_MODELS.find(m => m.id === replicateVideoSettings.model)?.name || 'Replicate'}
                                     </div>
-                                ) : generatedVideoUrl ? (
-                                    <div className="relative w-full h-full">
-                                        <video
-                                            src={generatedVideoUrl}
-                                            controls
-                                            className="w-full h-full object-contain"
-                                            autoPlay
-                                            loop
-                                        />
-                                        <button onClick={() => setGeneratedVideoUrl(null)} className="absolute top-4 right-4 bg-black/80 p-2 rounded-full text-white hover:bg-red-500 transition"><XMarkIcon className="w-4 h-4" /></button>
-                                        <div className="absolute bottom-4 left-4 bg-black/80 px-3 py-1 rounded-full text-xs text-emerald-400 font-bold">Veo 3.1</div>
+                                </div>
+                            ) : currentImage ? (
+                                <img src={currentImage.url} alt="Generated" className="w-full h-full object-contain" draggable={false} />
+                            ) : (
+                                <div className="relative w-full h-full flex items-center justify-center bg-[var(--bg-main)] perspective-[1000px] overflow-hidden group">
+                                    {/* Schematic Stage Grid */}
+                                    <div className="absolute w-[200%] h-[200%] opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px', transform: 'rotateX(60deg) translateY(-20%) translateZ(-100px)', transformOrigin: 'center 40%' }} />
+
+                                    {/* Schematic Subject */}
+                                    <div className="relative z-10 flex flex-col items-center justify-center transition duration-500">
+                                        <UserIcon className="w-32 h-32 text-[var(--text-muted)] drop-shadow-2xl" />
+                                        <div className="w-24 h-4 bg-black/50 blur-lg rounded-[100%] mt-[-10px]"></div>
+                                        <p className="mt-4 text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest">Subject</p>
                                     </div>
-                                ) : generatedReplicateVideoUrl ? (
-                                    <div className="relative w-full h-full">
-                                        <video
-                                            src={generatedReplicateVideoUrl}
-                                            controls
-                                            className="w-full h-full object-contain"
-                                            autoPlay
-                                            loop
-                                        />
-                                        <button onClick={() => setGeneratedReplicateVideoUrl(null)} className="absolute top-4 right-4 bg-black/80 p-2 rounded-full text-white hover:bg-red-500 transition"><XMarkIcon className="w-4 h-4" /></button>
-                                        <div className="absolute bottom-4 left-4 bg-black/80 px-3 py-1 rounded-full text-xs text-purple-400 font-bold">
-                                            {REPLICATE_MODELS.find(m => m.id === replicateVideoSettings.model)?.name || 'Replicate'}
+
+                                    {!settings.relight.enabled && (
+                                        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+                                            <button onClick={() => setSettings(s => ({ ...s, relight: { ...s.relight, enabled: true } }))} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold shadow-2xl shadow-indigo-500/20 flex items-center gap-2 transform hover:scale-105 transition">
+                                                <BoltIcon className="w-5 h-5" />Enable Studio Lights
+                                            </button>
                                         </div>
-                                    </div>
-                                ) : currentImage ? (
-                                    <img src={currentImage.url} alt="Generated" className="w-full h-full object-contain" draggable={false} />
-                                ) : (
-                                    <div className="relative w-full h-full flex items-center justify-center bg-[var(--bg-main)] perspective-[1000px] overflow-hidden group">
-                                        {/* Schematic Stage Grid */}
-                                        <div className="absolute w-[200%] h-[200%] opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px', transform: 'rotateX(60deg) translateY(-20%) translateZ(-100px)', transformOrigin: 'center 40%' }} />
-
-                                        {/* Schematic Subject */}
-                                        <div className="relative z-10 flex flex-col items-center justify-center transition duration-500">
-                                            <UserIcon className="w-32 h-32 text-[var(--text-muted)] drop-shadow-2xl" />
-                                            <div className="w-24 h-4 bg-black/50 blur-lg rounded-[100%] mt-[-10px]"></div>
-                                            <p className="mt-4 text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest">Subject</p>
-                                        </div>
-
-                                        {!settings.relight.enabled && (
-                                            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
-                                                <button onClick={() => setSettings(s => ({ ...s, relight: { ...s.relight, enabled: true } }))} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold shadow-2xl shadow-indigo-500/20 flex items-center gap-2 transform hover:scale-105 transition">
-                                                    <BoltIcon className="w-5 h-5" />Enable Studio Lights
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-
-                            <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-hidden">
-                                {settings.relight.enabled && !generatedVideoUrl && !generatedReplicateVideoUrl && !isGeneratingVideo && !isGeneratingReplicateVideo && (
-                                    <>
-                                        {renderLightBeam('key')}
-                                        {renderLightBeam('rim')}
-                                        {renderLightBeam('back')}
-                                        {renderLightBeam('bounce')}
-                                    </>
-                                )}
-                            </svg>
-
-                            <div ref={previewRef} className="absolute inset-0 z-20 pointer-events-none">
-                                {settings.relight.enabled && !generatedVideoUrl && !generatedReplicateVideoUrl && !isGeneratingVideo && !isGeneratingReplicateVideo && (
-                                    <>
-                                        {renderLightHandle('key', 'Key Light')}
-                                        {renderLightHandle('rim', 'Rim Light')}
-                                        {renderLightHandle('back', 'Backlight')}
-                                        {renderLightHandle('bounce', 'Bounce Fill')}
-                                    </>
-                                )}
-                            </div>
-
-                            {currentImage && !draggingLight && !generatedVideoUrl && !generatedReplicateVideoUrl && (
-                                <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-xs text-white flex items-center gap-1 pointer-events-none z-30">
-                                    <span className="text-green-400">Shot:</span> <span className="truncate max-w-[200px]">{currentImage.angleUsed}</span>
+                                    )}
                                 </div>
                             )}
                         </div>
 
-                        <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center relative z-20">
-                            {generatedImages.length > 0 && (
-                                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide flex-1 max-w-full">
-                                    {generatedImages.map((img, idx) => (
-                                        <button key={idx} onClick={() => { setSelectedImageIndex(idx); setGeneratedVideoUrl(null); }} className={`relative flex-shrink-0 w-24 aspect-video rounded-lg overflow-hidden border-2 transition ${selectedImageIndex === idx ? 'border-green-500 ring-2 ring-green-500/30' : 'border-[var(--border-color)] opacity-60 hover:opacity-100'}`} title={img.angleUsed}>
-                                            <img src={img.url} className="w-full h-full object-cover" alt={`Variant ${idx}`} />
-                                        </button>
-                                    ))}
-                                </div>
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-hidden">
+                            {settings.relight.enabled && !generatedVideoUrl && !generatedReplicateVideoUrl && !isGeneratingVideo && !isGeneratingReplicateVideo && (
+                                <>
+                                    {renderLightBeam('key')}
+                                    {renderLightBeam('rim')}
+                                    {renderLightBeam('back')}
+                                    {renderLightBeam('bounce')}
+                                </>
                             )}
+                        </svg>
 
-                            <div className="flex gap-2 w-full md:w-auto">
-                                {generatedImages.length > 1 && (
-                                    <button onClick={handleDownloadAll} className="flex-1 md:flex-none bg-[var(--bg-hover)] hover:bg-[var(--border-hover)] text-[var(--text-primary)] hover:text-[var(--text-primary)] px-4 py-2.5 rounded-lg text-xs font-bold border border-[var(--border-color)] transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap cursor-pointer">
-                                        <ArrowDownTrayIcon className="w-4 h-4" /> Download All
-                                    </button>
-                                )}
-                                {generatedVideoUrl && (
-                                    <button onClick={() => handleDownloadVideo(generatedVideoUrl, `gemini-video-${Date.now()}.mp4`)} className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
-                                        <ArrowDownTrayIcon className="w-4 h-4" /> Download Veo Video
-                                    </button>
-                                )}
-                                {generatedReplicateVideoUrl && (
-                                    <button onClick={() => handleDownloadVideo(generatedReplicateVideoUrl, `replicate-video-${Date.now()}.mp4`)} className="flex-1 md:flex-none bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-purple-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
-                                        <ArrowDownTrayIcon className="w-4 h-4" /> Download Video
-                                    </button>
-                                )}
-                                {!generatedVideoUrl && !generatedReplicateVideoUrl && currentImage && (
-                                    <a href={currentImage.url} download={`gemini-studio-render-${Date.now()}.png`} className="flex-1 md:flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
-                                        <ArrowDownTrayIcon className="w-4 h-4" /> Download Image
-                                    </a>
-                                )}
-                            </div>
+                        <div ref={previewRef} className="absolute inset-0 z-20 pointer-events-none">
+                            {settings.relight.enabled && !generatedVideoUrl && !generatedReplicateVideoUrl && !isGeneratingVideo && !isGeneratingReplicateVideo && (
+                                <>
+                                    {renderLightHandle('key', 'Key Light')}
+                                    {renderLightHandle('rim', 'Rim Light')}
+                                    {renderLightHandle('back', 'Backlight')}
+                                    {renderLightHandle('bounce', 'Bounce Fill')}
+                                </>
+                            )}
                         </div>
 
-
-                    </div>
-                    <div className="p-3 bg-[var(--bg-main)] border-t border-[var(--border-color)] space-y-3 z-20 flex-none">
-                        <div className="grid grid-cols-1 gap-3 relative z-10">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider flex justify-between"><span>Final Prompt</span>{characters.length > 0 && <span className="text-[10px] text-pink-400">Tip: Use @name to insert character</span>}</label>
-                                <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} disabled={activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0} className={`w-full bg-[var(--bg-input)] text-[var(--text-primary)] rounded-xl p-2 border border-[var(--border-color)] focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none h-24 resize-none font-light leading-relaxed ${activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`} placeholder={activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0 ? "Using prompts detected from Story Flow..." : "Waiting for prompt from Architect... (Type @name to use characters)"} />
+                        {currentImage && !draggingLight && !generatedVideoUrl && !generatedReplicateVideoUrl && (
+                            <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-xs text-white flex items-center gap-1 pointer-events-none z-30">
+                                <span className="text-green-400">Shot:</span> <span className="truncate max-w-[200px]">{currentImage.angleUsed}</span>
                             </div>
-                        </div>
-
-                        {error && (<div className="p-4 bg-red-900/20 border border-red-500/50 text-red-200 rounded-lg text-sm">{error}</div>)}
-                        <button onClick={handleGenerate} disabled={isGenerating || (!prompt && activeSidebar !== 'story')} className="w-full py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-green-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 text-lg group relative z-20">
-                            {isGenerating ? (<><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Synthesizing {count} Variants...</>) : (<><BoltIcon className="w-6 h-6 group-hover:animate-pulse" />{generateButtonText}</>)}
-                        </button>
+                        )}
                     </div>
+
+                    <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center relative z-20">
+                        {generatedImages.length > 0 && (
+                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide flex-1 max-w-full">
+                                {generatedImages.map((img, idx) => (
+                                    <button key={idx} onClick={() => { setSelectedImageIndex(idx); setGeneratedVideoUrl(null); }} className={`relative flex-shrink-0 w-24 aspect-video rounded-lg overflow-hidden border-2 transition ${selectedImageIndex === idx ? 'border-green-500 ring-2 ring-green-500/30' : 'border-[var(--border-color)] opacity-60 hover:opacity-100'}`} title={img.angleUsed}>
+                                        <img src={img.url} className="w-full h-full object-cover" alt={`Variant ${idx}`} />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="flex gap-2 w-full md:w-auto">
+                            {generatedImages.length > 1 && (
+                                <button onClick={handleDownloadAll} className="flex-1 md:flex-none bg-[var(--bg-hover)] hover:bg-[var(--border-hover)] text-[var(--text-primary)] hover:text-[var(--text-primary)] px-4 py-2.5 rounded-lg text-xs font-bold border border-[var(--border-color)] transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap cursor-pointer">
+                                    <ArrowDownTrayIcon className="w-4 h-4" /> Download All
+                                </button>
+                            )}
+                            {generatedVideoUrl && (
+                                <button onClick={() => handleDownloadVideo(generatedVideoUrl, `gemini-video-${Date.now()}.mp4`)} className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
+                                    <ArrowDownTrayIcon className="w-4 h-4" /> Download Veo Video
+                                </button>
+                            )}
+                            {generatedReplicateVideoUrl && (
+                                <button onClick={() => handleDownloadVideo(generatedReplicateVideoUrl, `replicate-video-${Date.now()}.mp4`)} className="flex-1 md:flex-none bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-purple-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
+                                    <ArrowDownTrayIcon className="w-4 h-4" /> Download Video
+                                </button>
+                            )}
+                            {!generatedVideoUrl && !generatedReplicateVideoUrl && currentImage && (
+                                <a href={currentImage.url} download={`gemini-studio-render-${Date.now()}.png`} className="flex-1 md:flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
+                                    <ArrowDownTrayIcon className="w-4 h-4" /> Download Image
+                                </a>
+                            )}
+                        </div>
+                    </div>
+
 
                 </div>
-            )
-            }
+                <div className="p-3 bg-[var(--bg-main)] border-t border-[var(--border-color)] space-y-3 z-20 flex-none">
+                    <div className="grid grid-cols-1 gap-3 relative z-10">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider flex justify-between"><span>Final Prompt</span>{characters.length > 0 && <span className="text-[10px] text-pink-400">Tip: Use @name to insert character</span>}</label>
+                            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} disabled={activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0} className={`w-full bg-[var(--bg-input)] text-[var(--text-primary)] rounded-xl p-2 border border-[var(--border-color)] focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none h-24 resize-none font-light leading-relaxed ${activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`} placeholder={activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0 ? "Using prompts detected from Story Flow..." : "Waiting for prompt from Architect... (Type @name to use characters)"} />
+                        </div>
+                    </div>
+
+                    {error && (<div className="p-4 bg-red-900/20 border border-red-500/50 text-red-200 rounded-lg text-sm">{error}</div>)}
+                    <button onClick={handleGenerate} disabled={isGenerating || (!prompt && activeSidebar !== 'story')} className="w-full py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl shadow-lg shadow-green-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 text-lg group relative z-20">
+                        {isGenerating ? (<><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Synthesizing {count} Variants...</>) : (<><BoltIcon className="w-6 h-6 group-hover:animate-pulse" />{generateButtonText}</>)}
+                    </button>
+                </div>
+
+            </div>
+
 
 
             <div className={`flex-none bg-[var(--bg-panel)] border-l border-[var(--border-color)] transition-all duration-300 ease-in-out flex flex-col overflow-hidden ${showSettings ? 'w-80 shadow-2xl opacity-100' : 'w-0 opacity-0 border-none'}`}>

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { CloudArrowUpIcon, RocketLaunchIcon, ComputerDesktopIcon, DevicePhoneMobileIcon, StopIcon, RectangleStackIcon, PhotoIcon, PencilSquareIcon, TrashIcon, ArrowDownTrayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
-import { reframeBannerWithReplicate } from '../services/replicateService';
+import { CloudArrowUpIcon, RocketLaunchIcon, ComputerDesktopIcon, DevicePhoneMobileIcon, StopIcon, RectangleStackIcon, PhotoIcon, PencilSquareIcon, TrashIcon, ArrowDownTrayIcon, ArrowPathIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { reframeBannerWithReplicate, editBannerWithReplicate } from '../services/replicateService';
 
+// ... (props interface)
 interface SmartBannersProps { }
 
+// ... (aspect ratios constant)
 const ASPECT_RATIOS = [
     { label: '16:9', desc: 'Landscape', icon: ComputerDesktopIcon, ratio: 'aspect-video' },
     { label: '9:16', desc: 'Portrait', icon: DevicePhoneMobileIcon, ratio: 'aspect-[9/16]' },
@@ -23,6 +25,11 @@ const SmartBanners: React.FC<SmartBannersProps> = () => {
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedAssets, setGeneratedAssets] = useState<{ ratio: string, url: string, status: 'pending' | 'completed' | 'failed' }[]>([]);
 
+    // Edit State
+    const [editingAsset, setEditingAsset] = useState<{ ratio: string, url: string, idx: number } | null>(null);
+    const [editPrompt, setEditPrompt] = useState('');
+    const [isEditing, setIsEditing] = useState(false);
+
     const handleGenerate = async () => {
         if (!bannerImage || selectedRatios.length === 0) return;
 
@@ -30,9 +37,6 @@ const SmartBanners: React.FC<SmartBannersProps> = () => {
         // Initialize placeholders
         const newAssets = selectedRatios.map(ratio => ({ ratio, url: '', status: 'pending' as const }));
         setGeneratedAssets(newAssets);
-
-        // Process sequentially to avoid overwhelming browser/network, or parallel?
-        // Let's do parallel but maybe limit concurrency if needed. For now, simple parallel.
 
         try {
             await Promise.all(selectedRatios.map(async (ratio) => {
@@ -55,6 +59,32 @@ const SmartBanners: React.FC<SmartBannersProps> = () => {
         }
     };
 
+    const handleEditStart = (asset: { ratio: string, url: string }, idx: number) => {
+        setEditingAsset({ ...asset, idx });
+        setEditPrompt('');
+    };
+
+    const handleEditSubmit = async () => {
+        if (!editingAsset || !editPrompt) return;
+
+        setIsEditing(true);
+        try {
+            const newItemUrl = await editBannerWithReplicate(editingAsset.url, editPrompt);
+
+            // Update the asset in the grid
+            setGeneratedAssets(prev => prev.map((asset, i) =>
+                i === editingAsset.idx ? { ...asset, url: newItemUrl } : asset
+            ));
+
+            setEditingAsset(null); // Close modal
+        } catch (error) {
+            console.error("Edit failed:", error);
+            alert("Failed to edit banner. Please try again.");
+        } finally {
+            setIsEditing(false);
+        }
+    };
+
     const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const reader = new FileReader();
@@ -72,7 +102,7 @@ const SmartBanners: React.FC<SmartBannersProps> = () => {
     };
 
     return (
-        <div className="flex h-full w-full overflow-hidden">
+        <div className="flex h-full w-full overflow-hidden relative">
             {/* Sidebar Controls */}
             <div className="w-80 flex-none bg-[var(--bg-panel)] border-r border-[var(--border-color)] overflow-y-auto p-4 flex flex-col gap-6">
 
@@ -157,7 +187,6 @@ const SmartBanners: React.FC<SmartBannersProps> = () => {
 
                 {/* Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {/* Placeholder Empty State if no generations */}
                     {/* Empty State */}
                     {generatedAssets.length === 0 && (
                         <div className="col-span-full py-20 flex flex-col items-center justify-center text-[var(--text-muted)] border-2 border-dashed border-[var(--border-color)] rounded-2xl bg-[var(--bg-card)]/50">
@@ -191,7 +220,7 @@ const SmartBanners: React.FC<SmartBannersProps> = () => {
                                         <a href={asset.url} download={`banner-${asset.ratio}.png`} className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition" title="Download">
                                             <ArrowDownTrayIcon className="w-5 h-5" />
                                         </a>
-                                        <button className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition" title="Edit (Coming Soon)">
+                                        <button onClick={() => handleEditStart(asset, idx)} className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition" title="Edit with AI">
                                             <PencilSquareIcon className="w-5 h-5" />
                                         </button>
                                     </div>
@@ -201,6 +230,46 @@ const SmartBanners: React.FC<SmartBannersProps> = () => {
                     ))}
                 </div>
             </div>
+
+            {/* Edit Modal Overlay */}
+            {editingAsset && (
+                <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-8">
+                    <div className="bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-2xl w-full max-w-2xl flex flex-col overflow-hidden shadow-2xl">
+                        <div className="p-4 border-b border-[var(--border-color)] flex justify-between items-center">
+                            <h3 className="font-bold text-[var(--text-primary)]">Edit Banner ({editingAsset.ratio})</h3>
+                            <button onClick={() => setEditingAsset(null)} className="text-[var(--text-muted)] hover:text-white transition"><XMarkIcon className="w-5 h-5" /></button>
+                        </div>
+
+                        <div className="p-6 flex flex-col gap-6">
+                            <div className="flex justify-center bg-black/20 rounded-xl p-4 border border-[var(--border-color)] border-dashed h-64">
+                                <img src={editingAsset.url} className="h-full object-contain" alt="Editing Target" />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">Edit Instructions</label>
+                                <textarea
+                                    value={editPrompt}
+                                    onChange={(e) => setEditPrompt(e.target.value)}
+                                    placeholder="Describe how you want to modify this banner (e.g., 'Make the background darker', 'Add a lens flare', 'Make text more legible')..."
+                                    className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] p-3 rounded-xl border border-[var(--border-color)] focus:border-indigo-500 outline-none h-24 resize-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-[var(--bg-card)] border-t border-[var(--border-color)] flex justify-end gap-3">
+                            <button onClick={() => setEditingAsset(null)} className="px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition">Cancel</button>
+                            <button
+                                onClick={handleEditSubmit}
+                                disabled={!editPrompt || isEditing}
+                                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                {isEditing ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <PencilSquareIcon className="w-4 h-4" />}
+                                {isEditing ? 'Processing...' : 'Apply Edits'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
