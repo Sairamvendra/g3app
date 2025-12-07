@@ -243,8 +243,8 @@ export const generateVideoWithReplicate = async (
   try {
     console.log(`Generating video via server with ${modelConfig.name}...`, input);
 
-    // Call server endpoint
-    const response = await fetch('/api/generate/video', {
+    // Call server endpoint instead of direct Replicate API
+    const response = await fetch('http://localhost:3002/api/generate/video', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -366,7 +366,7 @@ export const refinePromptWithReplicate = async (
 
   try {
     // Call server endpoint for text generation
-    const response = await fetch('/api/generate/text', {
+    const response = await fetch('http://localhost:3002/api/generate/text', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -433,7 +433,7 @@ Example: ["Panel 1 prompt...", "Panel 2 prompt...", "Panel 3 prompt..."]
   };
 
   try {
-    const response = await fetch('/api/generate/text', {
+    const response = await fetch('http://localhost:3002/api/generate/text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -508,7 +508,7 @@ Return ONLY the string.
   };
 
   try {
-    const response = await fetch('/api/generate/text', {
+    const response = await fetch('http://localhost:3002/api/generate/text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -585,7 +585,7 @@ Constraint:
   }
 
   try {
-    const response = await fetch('/api/generate/text', {
+    const response = await fetch('http://localhost:3002/api/generate/text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -816,7 +816,7 @@ NEGATIVE PROMPT / EXCLUSIONS:
     console.log('Generating image via server...', { aspectRatio: input.aspect_ratio, resolution: input.resolution });
 
     // Call server endpoint instead of direct Replicate API
-    const response = await fetch('/api/generate/image', {
+    const response = await fetch('http://localhost:3002/api/generate/image', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -913,7 +913,7 @@ export const reframeBannerWithReplicate = async (
   try {
     console.log('Reframing banner via server...', { aspectRatio });
 
-    const response = await fetch('/api/generate/image', {
+    const response = await fetch('http://localhost:3002/api/generate/image', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -965,7 +965,7 @@ GUIDELINES:
 - Return a high-quality updated version of the image.
 `.trim();
 
-    const response = await fetch('/api/generate/image', {
+    const response = await fetch('http://localhost:3002/api/generate/image', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
