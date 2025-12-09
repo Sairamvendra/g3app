@@ -6,12 +6,12 @@ const imagePath = "/Users/sairamvendra/.gemini/antigravity/brain/d90bbb9f-0561-4
 const buffer = fs.readFileSync(imagePath);
 const base64Image = `data:image/png;base64,${buffer.toString('base64')}`;
 
-const BANNER_SYSTEM_PROMPT = \`
+const BANNER_SYSTEM_PROMPT = `
 {
   "TOON_VERSION": "1.0",
   "TASK_ID": "BANNER_REFRAME",
   "OBJECTIVE": { "primary": "Reframe banner to target dimensions" }
-}\`;
+}`;
 
 const payload = {
   model: 'google/nano-banana-pro',
@@ -33,9 +33,9 @@ async function test() {
     });
 
     if (!response.ok) {
-        const text = await response.text();
-        console.error("Server Error:", response.status, text);
-        return;
+      const text = await response.text();
+      console.error("Server Error:", response.status, text);
+      return;
     }
 
     const data = await response.json();

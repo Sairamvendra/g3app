@@ -5,6 +5,7 @@
 This application is a comprehensive AI-powered visual creation studio that combines:
 
 ### Core Technologies
+
 - **Google Gemini Imagen 3**: For high-fidelity image generation
 - **Google Veo 3.1**: For professional video generation
 - **Replicate Video Models**: 6 different cutting-edge video generation models
@@ -46,6 +47,7 @@ This application is a comprehensive AI-powered visual creation studio that combi
 ### Key Features Added
 
 #### 1. Replicate Service Module (`services/replicateService.ts`)
+
 - Complete integration with Replicate API
 - Model-specific configuration handling
 - Automatic input preparation based on model requirements
@@ -53,11 +55,13 @@ This application is a comprehensive AI-powered visual creation studio that combi
 - Support for both text-to-video and image-to-video workflows
 
 #### 2. Type Definitions (`types.ts`)
+
 - `ReplicateVideoSettings` interface for model configuration
 - Model metadata including supported aspect ratios and durations
 - Type safety for all video generation parameters
 
 #### 3. UI Components
+
 - **Replicate Video Generation Panel**
   - Expandable/collapsible section
   - Model selector dropdown with descriptions
@@ -83,10 +87,28 @@ This application is a comprehensive AI-powered visual creation studio that combi
   - Loading states with appropriate messages
 
 #### 4. Integration with Existing Features
+
 - Shares the same prompt input and reference images
 - Uses existing video frame upload functionality
 - Compatible with character references and story flow
 - Maintains consistent UI/UX with the rest of the app
+
+#### 5. Smart Banners Module (`components/SmartBanners.tsx`)
+
+- **Multi-Ratio Reframing**: Intelligent resizing of images to standard ad formats:
+  - Landscape (16:9), Portrait (9:16), Square (1:1)
+  - Standard (4:3), Vertical (3:4), Cinema (21:9)
+  - Classic 35mm (3:2), Portrait 35mm (2:3)
+  - Medium Format (5:4), Portrait Med (4:5)
+- **Batch Processing**: Select multiple aspect ratios to generate simultaneously.
+- **AI-Powered Editing**:
+  - Click "Edit with AI" on any generated asset.
+  - Provide natural language instructions to refine the banner.
+- **Direct Export**: Download individual assets with one click.
+- **Workflow**:
+  1. Upload a source banner/image.
+  2. Select target aspect ratios.
+  3. Click "Analyze & Reframe" to generate variants using `google/nano-banana-pro`.
 
 ## User Workflow
 
@@ -109,6 +131,7 @@ This application is a comprehensive AI-powered visual creation studio that combi
 ### Comparing Models
 
 Users can easily experiment with different models by:
+
 1. Generating a video with one model
 2. Changing the model in the dropdown
 3. Adjusting model-specific parameters
@@ -119,6 +142,7 @@ The UI maintains both Veo and Replicate videos separately, allowing direct compa
 ## Technical Implementation Details
 
 ### API Integration
+
 - **Authentication**: Replicate API key stored in localStorage
 - **Request Flow**:
   1. Validate API key
@@ -128,6 +152,7 @@ The UI maintains both Veo and Replicate videos separately, allowing direct compa
   5. Return video URL
 
 ### Error Handling
+
 - API key validation before generation
 - Clear error messages for common issues:
   - Missing API key
@@ -137,6 +162,7 @@ The UI maintains both Veo and Replicate videos separately, allowing direct compa
 - Automatic modal prompts for missing configuration
 
 ### Performance Optimizations
+
 - Lazy loading of video generation modules
 - Expandable sections to reduce initial UI complexity
 - Client-side validation before API calls
@@ -145,13 +171,16 @@ The UI maintains both Veo and Replicate videos separately, allowing direct compa
 ## Configuration
 
 ### Environment Variables
+
 ```env
 GEMINI_API_KEY=your_gemini_key
 REPLICATE_API_KEY=your_replicate_key
 ```
 
 ### Runtime Configuration
+
 Both API keys can be configured through the UI:
+
 - Gemini: Click key icon in header
 - Replicate: Click "Configure API Key" in Replicate panel
 
@@ -160,12 +189,14 @@ Keys are stored in browser localStorage for persistence across sessions.
 ## Cost Considerations
 
 ### Replicate Pricing
+
 - Video generation costs vary by model and duration
 - Typical range: $0.02 - $0.10 per generation
 - Longer durations and higher quality settings increase cost
 - Monitor usage at replicate.com/account
 
 ### Optimization Tips
+
 - Use faster models (LTX Video) for testing
 - Reduce inference steps during iteration
 - Increase quality settings only for final renders
@@ -174,6 +205,7 @@ Keys are stored in browser localStorage for persistence across sessions.
 ## Future Enhancements
 
 Potential additions:
+
 - Batch video generation
 - Video editing and trimming
 - Custom model fine-tuning
