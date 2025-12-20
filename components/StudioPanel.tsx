@@ -13,6 +13,12 @@ interface StudioPanelProps {
 }
 
 const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
+    // Helper to convert aspect ratio string to CSS value
+    const getAspectRatioValue = (ratio: AspectRatio): string => {
+        if (ratio === 'Auto') return '1/1'; // Default or handle appropriately
+        return ratio.replace(':', '/');
+    };
+
     const [prompt, setPrompt] = useState(initialPrompt);
     React.useEffect(() => {
         if (initialPrompt) setPrompt(initialPrompt);
@@ -30,6 +36,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
     const [isSettingsPinned, setIsSettingsPinned] = useState(false);
     const [draggingLight, setDraggingLight] = useState<string | null>(null);
     const previewRef = useRef<HTMLDivElement>(null);
+    const boxRef = useRef<HTMLDivElement>(null);
 
     // Video State
     const [videoSettings, setVideoSettings] = useState<VideoSettings>({
@@ -43,6 +50,51 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
     const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
     const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
     const [isImprovingPrompt, setIsImprovingPrompt] = useState(false);
+
+    // Resize Observer for Aspect Ratio Preview
+    const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+    useEffect(() => {
+        if (!previewRef.current) return;
+        const observer = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                setContainerSize({
+                    width: entry.contentRect.width,
+                    height: entry.contentRect.height
+                });
+            }
+        });
+        observer.observe(previewRef.current);
+        return () => observer.disconnect();
+    }, []);
+
+    // Calculate dynamic preview style
+    const getPreviewStyle = () => {
+        const { width, height } = containerSize;
+        if (width === 0 || height === 0) return { opacity: 0 };
+
+        const ratioStr = getAspectRatioValue(settings.aspectRatio);
+        const [wStr, hStr] = ratioStr.split('/');
+        const targetRatio = parseFloat(wStr) / parseFloat(hStr);
+        const containerRatio = width / height;
+
+        if (containerRatio > targetRatio) {
+            // Container is wider than target -> Fit to height
+            return {
+                height: '100%',
+                width: `calc(100% * ${targetRatio / containerRatio})`, // Fallback
+                aspectRatio: ratioStr
+            };
+        } else {
+            // Container is narrower -> Fit to width
+            return {
+                width: '100%',
+                height: `calc(100% * ${containerRatio / targetRatio})`, // Fallback
+                aspectRatio: ratioStr
+            };
+        }
+    };
+
 
     // Replicate Video State
     const [replicateVideoSettings, setReplicateVideoSettings] = useState<ReplicateVideoSettings>({
@@ -114,8 +166,8 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
     // Global Mouse Handlers for Dragging
     useEffect(() => {
         const handleGlobalMove = (e: MouseEvent) => {
-            if (!draggingLight || !previewRef.current) return;
-            const rect = previewRef.current.getBoundingClientRect();
+            if (!draggingLight || !boxRef.current) return;
+            const rect = boxRef.current.getBoundingClientRect();
             let x = ((e.clientX - rect.left) / rect.width) * 100;
             let y = ((e.clientY - rect.top) / rect.height) * 100;
 
@@ -911,94 +963,84 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
 
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-3 gap-3">
                     <div className="w-full flex-1 min-h-0 bg-[var(--bg-card)] rounded-2xl border-2 border-dashed border-[var(--border-color)] flex flex-col items-center justify-center relative overflow-hidden group select-none shadow-2xl">
-                        <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden bg-[var(--bg-main)]">
-                            {isGenerating || isGeneratingVideo || isGeneratingReplicateVideo ? (
-                                <div className="flex flex-col items-center justify-center space-y-4">
-                                    <div className="w-16 h-16 border-4 border-[var(--border-color)] border-t-indigo-500 rounded-full animate-spin"></div>
-                                    <p className="text-[var(--text-secondary)] text-sm font-medium animate-pulse">
-                                        {isGeneratingVideo ? 'Synthesizing Veo Video (This may take a minute)...' :
-                                            isGeneratingReplicateVideo ? 'Generating Replicate Video (This may take a minute)...' :
-                                                'Rendering Scene...'}
-                                    </p>
-                                </div>
-                            ) : generatedVideoUrl ? (
-                                <div className="relative w-full h-full">
-                                    <video
-                                        src={generatedVideoUrl}
-                                        controls
-                                        className="w-full h-full object-contain"
-                                        autoPlay
-                                        loop
-                                    />
-                                    <button onClick={() => setGeneratedVideoUrl(null)} className="absolute top-4 right-4 bg-black/80 p-2 rounded-full text-white hover:bg-red-500 transition"><XMarkIcon className="w-4 h-4" /></button>
-                                    <div className="absolute bottom-4 left-4 bg-black/80 px-3 py-1 rounded-full text-xs text-emerald-400 font-bold">Veo 3.1</div>
-                                </div>
-                            ) : generatedReplicateVideoUrl ? (
-                                <div className="relative w-full h-full">
-                                    <video
-                                        src={generatedReplicateVideoUrl}
-                                        controls
-                                        className="w-full h-full object-contain"
-                                        autoPlay
-                                        loop
-                                    />
-                                    <button onClick={() => setGeneratedReplicateVideoUrl(null)} className="absolute top-4 right-4 bg-black/80 p-2 rounded-full text-white hover:bg-red-500 transition"><XMarkIcon className="w-4 h-4" /></button>
-                                    <div className="absolute bottom-4 left-4 bg-black/80 px-3 py-1 rounded-full text-xs text-purple-400 font-bold">
-                                        {REPLICATE_MODELS.find(m => m.id === replicateVideoSettings.model)?.name || 'Replicate'}
-                                    </div>
-                                </div>
-                            ) : currentImage ? (
-                                <img src={currentImage.url} alt="Generated" className="w-full h-full object-contain" draggable={false} />
-                            ) : (
-                                <div className="relative w-full h-full flex items-center justify-center bg-[var(--bg-main)] perspective-[1000px] overflow-hidden group">
-                                    {/* Schematic Stage Grid */}
-                                    <div className="absolute w-[200%] h-[200%] opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px', transform: 'rotateX(60deg) translateY(-20%) translateZ(-100px)', transformOrigin: 'center 40%' }} />
+                        {/* Parent Container (Reference for ResizeObserver) */}
+                        <div ref={previewRef} className="absolute inset-0 flex items-center justify-center p-8 z-0">
 
-                                    {/* Schematic Subject */}
-                                    <div className="relative z-10 flex flex-col items-center justify-center transition duration-500">
-                                        <UserIcon className="w-32 h-32 text-[var(--text-muted)] drop-shadow-2xl" />
-                                        <div className="w-24 h-4 bg-black/50 blur-lg rounded-[100%] mt-[-10px]"></div>
-                                        <p className="mt-4 text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest">Subject</p>
+                            {/* Dynamic Aspect Ratio Box (Reference for Content & Dragging) */}
+                            <div
+                                ref={boxRef}
+                                className={`relative transition-all duration-300 shadow-2xl ${!currentImage && !generatedVideoUrl && !generatedReplicateVideoUrl ? 'border-[2px] border-zinc-500/40 bg-[var(--bg-main)]' : ''}`}
+                                style={getPreviewStyle()}
+                            >
+                                {/* Active Format Label (Only in Schematic Mode) */}
+                                {!currentImage && !generatedVideoUrl && !generatedReplicateVideoUrl && (
+                                    <div className="absolute -top-6 left-0 text-[10px] font-medium text-zinc-400 bg-black/50 px-2 py-0.5 rounded border border-white/10 z-20">
+                                        {settings.aspectRatio}
                                     </div>
+                                )}
 
-                                    {!settings.relight.enabled && (
-                                        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
-                                            <button onClick={() => setSettings(s => ({ ...s, relight: { ...s.relight, enabled: true } }))} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold shadow-2xl shadow-indigo-500/20 flex items-center gap-2 transform hover:scale-105 transition">
-                                                <BoltIcon className="w-5 h-5" />Enable Studio Lights
-                                            </button>
+                                {/* Content Layer */}
+                                <div className="absolute inset-0 overflow-hidden">
+                                    {isGenerating || isGeneratingVideo || isGeneratingReplicateVideo ? (
+                                        <div className="w-full h-full flex flex-col items-center justify-center space-y-4 bg-[var(--bg-main)]">
+                                            <div className="w-16 h-16 border-4 border-[var(--border-color)] border-t-indigo-500 rounded-full animate-spin"></div>
+                                            <p className="text-[var(--text-secondary)] text-sm font-medium animate-pulse">
+                                                {isGeneratingVideo ? 'Synthesizing Veo Video...' :
+                                                    isGeneratingReplicateVideo ? 'Generating Replicate Video...' :
+                                                        'Rendering Scene...'}
+                                            </p>
+                                        </div>
+                                    ) : generatedVideoUrl ? (
+                                        <div className="relative w-full h-full">
+                                            <video src={generatedVideoUrl} controls className="w-full h-full object-cover" autoPlay loop />
+                                            <button onClick={() => setGeneratedVideoUrl(null)} className="absolute top-4 right-4 bg-black/80 p-2 rounded-full text-white hover:bg-red-500 transition z-50"><XMarkIcon className="w-4 h-4" /></button>
+                                        </div>
+                                    ) : generatedReplicateVideoUrl ? (
+                                        <div className="relative w-full h-full">
+                                            <video src={generatedReplicateVideoUrl} controls className="w-full h-full object-cover" autoPlay loop />
+                                            <button onClick={() => setGeneratedReplicateVideoUrl(null)} className="absolute top-4 right-4 bg-black/80 p-2 rounded-full text-white hover:bg-red-500 transition z-50"><XMarkIcon className="w-4 h-4" /></button>
+                                        </div>
+                                    ) : currentImage ? (
+                                        <img src={currentImage.url} alt="Generated" className="w-full h-full object-cover" draggable={false} />
+                                    ) : (
+                                        <div className="relative w-full h-full flex items-center justify-center bg-[var(--bg-main)] perspective-[1000px] overflow-hidden group">
+                                            {/* Schematic Grid */}
+                                            <div className="absolute w-[200%] h-[200%] opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px', transform: 'rotateX(60deg) translateY(-20%) translateZ(-100px)', transformOrigin: 'center 40%' }} />
+                                            {/* Subject */}
+                                            <div className="relative z-10 flex flex-col items-center justify-center transition duration-500">
+                                                <UserIcon className="w-24 h-24 text-[var(--text-muted)] drop-shadow-2xl opacity-50" />
+                                                <div className="w-20 h-4 bg-black/50 blur-lg rounded-[100%] mt-[-10px]"></div>
+                                            </div>
+                                            {!settings.relight.enabled && (
+                                                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+                                                    <button onClick={() => setSettings(s => ({ ...s, relight: { ...s.relight, enabled: true } }))} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold shadow-2xl shadow-indigo-500/20 flex items-center gap-2 transform hover:scale-105 transition">
+                                                        <BoltIcon className="w-5 h-5" />Enable Studio Lights
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
-                            )}
-                        </div>
 
-                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-hidden">
-                            {settings.relight.enabled && !generatedVideoUrl && !generatedReplicateVideoUrl && !isGeneratingVideo && !isGeneratingReplicateVideo && (
-                                <>
-                                    {renderLightBeam('key')}
-                                    {renderLightBeam('rim')}
-                                    {renderLightBeam('back')}
-                                    {renderLightBeam('bounce')}
-                                </>
-                            )}
-                        </svg>
-
-                        <div ref={previewRef} className="absolute inset-0 z-20 pointer-events-none">
-                            {settings.relight.enabled && !generatedVideoUrl && !generatedReplicateVideoUrl && !isGeneratingVideo && !isGeneratingReplicateVideo && (
-                                <>
-                                    {renderLightHandle('key', 'Key Light')}
-                                    {renderLightHandle('rim', 'Rim Light')}
-                                    {renderLightHandle('back', 'Backlight')}
-                                    {renderLightHandle('bounce', 'Bounce Fill')}
-                                </>
-                            )}
-                        </div>
-
-                        {currentImage && !draggingLight && !generatedVideoUrl && !generatedReplicateVideoUrl && (
-                            <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-xs text-white flex items-center gap-1 pointer-events-none z-30">
-                                <span className="text-green-400">Shot:</span> <span className="truncate max-w-[200px]">{currentImage.angleUsed}</span>
+                                {/* Lighting Overlay (Confined to Box) */}
+                                {settings.relight.enabled && !generatedVideoUrl && !generatedReplicateVideoUrl && !isGeneratingVideo && !isGeneratingReplicateVideo && (
+                                    <>
+                                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-hidden">
+                                            {renderLightBeam('key')}
+                                            {renderLightBeam('rim')}
+                                            {renderLightBeam('back')}
+                                            {renderLightBeam('bounce')}
+                                        </svg>
+                                        <div className="absolute inset-0 z-20 pointer-events-none">
+                                            {renderLightHandle('key', 'Key Light')}
+                                            {renderLightHandle('rim', 'Rim Light')}
+                                            {renderLightHandle('back', 'Backlight')}
+                                            {renderLightHandle('bounce', 'Bounce Fill')}
+                                        </div>
+                                    </>
+                                )}
                             </div>
-                        )}
+                        </div>
                     </div>
 
                     <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center relative z-20">
@@ -1084,21 +1126,22 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                                         value={settings.model || 'google/nano-banana-pro'}
                                         onChange={(e) => {
                                             const newModel = e.target.value as any;
-                                            const defaultSize = newModel === 'black-forest-labs/flux-2-flex' ? '1 MP' : '1K';
+                                            const defaultSize = newModel.includes('flux') ? '1 MP' : '1K';
                                             setSettings({ ...settings, model: newModel, imageSize: defaultSize });
                                         }}
                                         className="w-full bg-transparent text-[var(--text-primary)] text-sm font-medium outline-none"
                                     >
                                         <option value="google/nano-banana-pro">Nano Banana Pro</option>
                                         <option value="black-forest-labs/flux-2-flex">Flux 2.1 Flex</option>
+                                        <option value="black-forest-labs/flux-2-max">Flux 2.1 Max</option>
                                     </select>
                                 </div>
                                 <div className="text-[10px] text-[var(--text-muted)]">
-                                    {settings.model === 'black-forest-labs/flux-2-flex' ? 'Advanced model with high fidelity.' : 'Fast, efficient standard model.'}
+                                    {settings.model?.includes('flux') ? 'Advanced model with high fidelity.' : 'Fast, efficient standard model.'}
                                 </div>
                             </div>
 
-                            {settings.model === 'black-forest-labs/flux-2-flex' && settings.fluxSettings && (
+                            {(settings.model === 'black-forest-labs/flux-2-flex' || settings.model === 'black-forest-labs/flux-2-max') && settings.fluxSettings && (
                                 <div className="space-y-3 mb-4 p-3 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)]">
                                     <h4 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2"><SparklesIcon className="w-3 h-3 text-purple-400" /> Flux Settings</h4>
 
@@ -1141,7 +1184,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                                 <div><span className="text-xs text-[var(--text-secondary)] mb-1 block">Aspect Ratio</span><select value={settings.aspectRatio} onChange={(e) => setSettings({ ...settings, aspectRatio: e.target.value as AspectRatio })} className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] p-2.5 rounded-lg border border-[var(--border-color)] outline-none focus:border-green-500 text-sm"><option value="Auto">Auto</option><option value="1:1">1:1 (Square)</option><option value="16:9">16:9 (Landscape)</option><option value="9:16">9:16 (Portrait)</option><option value="4:3">4:3 (Standard)</option><option value="3:4">3:4 (Portrait)</option><option value="21:9">21:9 (Ultrawide)</option><option value="3:2">3:2 (Classic 35mm)</option><option value="2:3">2:3 (Portrait 35mm)</option><option value="5:4">5:4 (Medium Format)</option><option value="4:5">4:5 (Portrait Medium)</option></select></div>
                                 <div>
                                     <span className="text-xs text-[var(--text-secondary)] mb-1 block">Resolution</span>
-                                    {settings.model === 'black-forest-labs/flux-2-flex' ? (
+                                    {(settings.model === 'black-forest-labs/flux-2-flex' || settings.model === 'black-forest-labs/flux-2-max') ? (
                                         <select
                                             value={settings.imageSize}
                                             onChange={(e) => setSettings({ ...settings, imageSize: e.target.value as ImageSize })}

@@ -780,7 +780,7 @@ NEGATIVE PROMPT / EXCLUSIONS:
   };
 
   // Special handling for Flux 21:9
-  if (settings.model === 'black-forest-labs/flux-2-flex' && settings.aspectRatio === '21:9') {
+  if ((settings.model === 'black-forest-labs/flux-2-flex' || settings.model === 'black-forest-labs/flux-2-max') && settings.aspectRatio === '21:9') {
     input.aspect_ratio = 'custom';
   }
 
@@ -835,8 +835,8 @@ NEGATIVE PROMPT / EXCLUSIONS:
         output_quality: settings.fluxSettings?.output_quality,
         safety_tolerance: settings.fluxSettings?.safety_tolerance,
         // Custom dimensions for 21:9 on Flux
-        custom_width: (settings.model === 'black-forest-labs/flux-2-flex' && settings.aspectRatio === '21:9') ? getFluxDimensions(settings.imageSize).width : undefined,
-        custom_height: (settings.model === 'black-forest-labs/flux-2-flex' && settings.aspectRatio === '21:9') ? getFluxDimensions(settings.imageSize).height : undefined,
+        custom_width: ((settings.model === 'black-forest-labs/flux-2-flex' || settings.model === 'black-forest-labs/flux-2-max') && settings.aspectRatio === '21:9') ? getFluxDimensions(settings.imageSize).width : undefined,
+        custom_height: ((settings.model === 'black-forest-labs/flux-2-flex' || settings.model === 'black-forest-labs/flux-2-max') && settings.aspectRatio === '21:9') ? getFluxDimensions(settings.imageSize).height : undefined,
       }),
     });
 

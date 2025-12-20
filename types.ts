@@ -60,7 +60,7 @@ export interface VideoSettings {
 
 
 export interface ImageSettings {
-  model?: 'google/nano-banana-pro' | 'black-forest-labs/flux-2-flex';
+  model?: 'google/nano-banana-pro' | 'black-forest-labs/flux-2-flex' | 'black-forest-labs/flux-2-max';
   fluxSettings?: FluxSettings;
   aspectRatio: AspectRatio;
   imageSize: ImageSize;
