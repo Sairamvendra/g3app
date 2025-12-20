@@ -716,6 +716,20 @@ ${activeLights.join('\n')}
     cameraControlsInstruction = `[CAMERA CONFIG]: ${directives.join(' ')}`;
   }
 
+  // Cinema Gear Injection
+  let cinemaGearInstruction = "";
+  if (settings.cinemaGear && settings.cinemaGear.enabled) {
+    const cg = settings.cinemaGear;
+    const parts = [
+      `[CAMERA: ${cg.cameraModel}, ${cg.sensorMode || 'Default Sensor'}, ISO ${cg.iso || '800'}]`,
+      `[LENS: ${cg.lensSeries}, ${cg.focalLength}, ${cg.aperture}]`,
+      `[SETTINGS: Shutter ${cg.shutter}, ${cg.fps} FPS${cg.colorScience ? `, ${cg.colorScience}` : ''}]`
+    ];
+    if (cg.recordingFormat) parts.push(`[FORMAT: ${cg.recordingFormat}]`);
+
+    cinemaGearInstruction = `\n[CINEMATOGRAPHY GEAR]:\n${parts.join('\n')}`;
+  }
+
   let shotTypeInstruction = `Camera Shot: ${activeAngle}`;
   if (activeAngle === 'Custom Camera Settings' || hasCustomControls) shotTypeInstruction = "";
 
@@ -728,9 +742,11 @@ Mood: ${settings.mood}.
 DI/Grading: ${gradingInstruction}.
 
 ${lightingInstruction}
+${lightingInstruction}
 ${cameraControlsInstruction}
+${cinemaGearInstruction}
 
-RENDER GUIDELINES:
+R3NDER GUIDELINES:
 - Photorealistic, High Fidelity, 4K.
 - COMPOSITION: Ensure the subject is framed such that the light sources themselves are OUT OF FRAME.
 

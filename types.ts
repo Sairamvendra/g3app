@@ -59,6 +59,21 @@ export interface VideoSettings {
 }
 
 
+export interface CinemaGearSettings {
+  enabled: boolean;
+  presetId?: string; // To track if a preset is active
+  cameraModel: string;
+  lensSeries: string;
+  focalLength: string; // e.g., "35mm"
+  aperture: string; // e.g., "T1.8"
+  shutter: string; // e.g., "180deg"
+  iso: string; // e.g., "800"
+  fps: string; // e.g., "24"
+  colorScience?: string; // e.g., "Log C"
+  sensorMode?: string; // e.g., "Open Gate"
+  recordingFormat?: string; // e.g., "ARRIRAW"
+}
+
 export interface ImageSettings {
   model?: 'google/nano-banana-pro' | 'black-forest-labs/flux-2-flex' | 'black-forest-labs/flux-2-max';
   fluxSettings?: FluxSettings;
@@ -73,6 +88,7 @@ export interface ImageSettings {
   customColorGrading: string;
   cameraControls: CameraSettings;
   relight: RelightSettings;
+  cinemaGear?: CinemaGearSettings;
 }
 
 export interface GeneratedImage {
@@ -140,7 +156,17 @@ export const DEFAULT_SETTINGS: ImageSettings = {
   diWorkflow: 'Standard Rec.709',
   customColorGrading: '',
   cameraControls: DEFAULT_CAMERA_SETTINGS,
-  relight: DEFAULT_RELIGHT_SETTINGS
+  relight: DEFAULT_RELIGHT_SETTINGS,
+  cinemaGear: {
+    enabled: false,
+    cameraModel: 'ALEXA 35',
+    lensSeries: 'ARRI Signature Prime',
+    focalLength: '35mm',
+    aperture: 'T1.8',
+    shutter: '180°',
+    iso: '800',
+    fps: '24',
+  }
 };
 
 export const LIGHTING_OPTIONS = [
@@ -236,4 +262,9 @@ export const REPLICATE_VIDEO_MODELS = [
   { id: 'genmo/mochi-1-preview', name: 'Mochi 1', type: 'text-to-video' },
   { id: 'fofr/kling-video', name: 'Kling Video', type: 'text-to-video' },
   { id: 'tencent/hunyuan-video-i2v', name: 'Hunyuan I2V', type: 'image-to-video' },
+];
+
+export const MINIMAX_VOICES = [
+  { id: 'voice-01', name: 'Voice 1' },
+  { id: 'voice-02', name: 'Voice 2' },
 ];

@@ -1,9 +1,10 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { AspectRatio, ImageSize, ImageSettings, GeneratedImage, DEFAULT_SETTINGS, LIGHTING_OPTIONS, ANGLE_OPTIONS, MOOD_OPTIONS, FRAMING_OPTIONS, CAMERA_ANGLE_OPTIONS, DI_WORKFLOW_OPTIONS, StoryFlowState, Character, SidebarMode, RelightLight, CharacterReference, VideoSettings, VIDEO_MODELS, VIDEO_DURATIONS, VIDEO_FRAMERATES, ReplicateVideoSettings, REPLICATE_VIDEO_MODELS } from '../types';
+import { AspectRatio, ImageSize, ImageSettings, GeneratedImage, DEFAULT_SETTINGS, LIGHTING_OPTIONS, ANGLE_OPTIONS, MOOD_OPTIONS, FRAMING_OPTIONS, CAMERA_ANGLE_OPTIONS, DI_WORKFLOW_OPTIONS, StoryFlowState, Character, SidebarMode, RelightLight, CharacterReference, VideoSettings, VIDEO_MODELS, VIDEO_DURATIONS, VIDEO_FRAMERATES, ReplicateVideoSettings } from '../types';
 import { generateImageWithReplicate, analyzeStoryboardFlowWithReplicate, generatePersonaPromptWithReplicate, improveVideoPromptWithReplicate, generateVideoWithReplicate, hasValidReplicateApiKey, REPLICATE_VIDEO_MODELS as REPLICATE_MODELS } from '../services/replicateService';
 import { ArrowDownTrayIcon, BoltIcon, PhotoIcon, CheckCircleIcon, XMarkIcon, PlusIcon, VideoCameraIcon, EyeIcon, LinkIcon, PaintBrushIcon, SparklesIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, UserGroupIcon, TrashIcon, CloudArrowDownIcon, LightBulbIcon, FilmIcon, ChevronUpIcon, ChevronDownIcon, PencilSquareIcon, PlayIcon, KeyIcon, ExclamationTriangleIcon, AdjustmentsHorizontalIcon, RectangleGroupIcon, CubeIcon, QueueListIcon, PaperClipIcon } from '@heroicons/react/24/outline';
 import { UserIcon } from '@heroicons/react/24/solid';
+import { MINIMAX_VOICES } from '../types';
+import { CINEMA_CAMERAS, CINEMA_LENSES, CINEMA_PRESETS } from '../data/cinemaGear';
 import CameraControls from './OrbitCamera';
 import RelightPanel from './RelightPanel';
 import SmartBanners from './SmartBanners';
@@ -82,14 +83,14 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
             // Container is wider than target -> Fit to height
             return {
                 height: '100%',
-                width: `calc(100% * ${targetRatio / containerRatio})`, // Fallback
+                width: `calc(100 % * ${targetRatio / containerRatio})`, // Fallback
                 aspectRatio: ratioStr
             };
         } else {
             // Container is narrower -> Fit to width
             return {
                 width: '100%',
-                height: `calc(100% * ${containerRatio / targetRatio})`, // Fallback
+                height: `calc(100 % * ${containerRatio / targetRatio})`, // Fallback
                 aspectRatio: ratioStr
             };
         }
@@ -227,7 +228,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
             const img = generatedImages[i];
             const link = document.createElement('a');
             link.href = img.url;
-            link.download = `gemini-studio-${img.angleUsed.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Date.now()}-${i + 1}.png`;
+            link.download = `gemini - studio - ${img.angleUsed.replace(/[^a-z0-9]/gi, '-').toLowerCase()} -${Date.now()} -${i + 1}.png`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -308,7 +309,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
         const characterRefs: CharacterReference[] = [];
 
         characters.forEach(char => {
-            const regex = new RegExp(`@${char.name}`, 'gi');
+            const regex = new RegExp(`@${char.name} `, 'gi');
             if (regex.test(finalPrompt)) {
                 finalPrompt = finalPrompt.replace(regex, char.name);
                 if (!characterRefs.find(c => c.name === char.name)) {
@@ -355,7 +356,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
             if (activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0) {
                 const activeAngle = settings.cameraAngles.length > 0 ? settings.cameraAngles.join(' + ') : 'Cinematic Composition';
                 const promises = storyFlow.detectedPrompts.map((panelPrompt, idx) =>
-                    performGeneration(panelPrompt, `Panel ${idx + 1}`, settings)
+                    performGeneration(panelPrompt, `Panel ${idx + 1} `, settings)
                 );
                 const outcomes = await Promise.allSettled(promises);
                 results = outcomes
@@ -1235,6 +1236,131 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                                 <div className="grid grid-cols-2 gap-3">
                                     <select value={settings.lighting} onChange={(e) => setSettings({ ...settings, lighting: e.target.value })} disabled={settings.relight?.enabled} className={`w-full bg-[var(--bg-input)] text-[var(--text-primary)] p-2.5 rounded-lg border border-[var(--border-color)] outline-none focus:border-green-500 text-sm ${settings.relight?.enabled ? 'opacity-50 cursor-not-allowed' : ''}`}><option disabled>Select Lighting</option>{LIGHTING_OPTIONS.map(l => <option key={l} value={l}>{l}</option>)}</select>
                                     <select value={settings.mood} onChange={(e) => setSettings({ ...settings, mood: e.target.value })} className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] p-2.5 rounded-lg border border-[var(--border-color)] outline-none focus:border-green-500 text-sm"><option disabled>Select Mood</option>{MOOD_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}</select>
+                                </div>
+
+                                {/* Cinema Gear Module */}
+                                <div className="space-y-3 p-3 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)]">
+                                    <h4 className="text-xs font-bold text-[var(--text-primary)] flex items-center justify-between">
+                                        <span className="flex items-center gap-2"><FilmIcon className="w-3 h-3 text-amber-500" /> Cinema Camera Gear</span>
+                                        <input
+                                            type="checkbox"
+                                            checked={settings.cinemaGear?.enabled || false}
+                                            onChange={(e) => setSettings({
+                                                ...settings,
+                                                cinemaGear: { ...settings.cinemaGear!, enabled: e.target.checked }
+                                            })}
+                                            className="toggle toggle-xs toggle-success"
+                                        />
+                                    </h4>
+
+                                    {settings.cinemaGear?.enabled && (
+                                        <div className="space-y-3 pt-2">
+                                            {/* Presets */}
+                                            <div>
+                                                <label className="text-xs text-[var(--text-secondary)] mb-1 block">Quick Setup</label>
+                                                <select
+                                                    value={settings.cinemaGear.presetId || ''}
+                                                    onChange={(e) => {
+                                                        const preset = CINEMA_PRESETS.find(p => p.id === e.target.value);
+                                                        if (preset) {
+                                                            setSettings({
+                                                                ...settings,
+                                                                cinemaGear: {
+                                                                    ...settings.cinemaGear!,
+                                                                    enabled: true,
+                                                                    presetId: preset.id,
+                                                                    ...preset.settings
+                                                                }
+                                                            });
+                                                        } else {
+                                                            setSettings({
+                                                                ...settings,
+                                                                cinemaGear: { ...settings.cinemaGear!, presetId: undefined }
+                                                            });
+                                                        }
+                                                    }}
+                                                    className="w-full bg-[var(--bg-main)] text-[var(--text-primary)] p-2 rounded-lg border border-[var(--border-color)] text-xs outline-none focus:border-amber-500"
+                                                >
+                                                    <option value="">Custom / Manual</option>
+                                                    {CINEMA_PRESETS.map(preset => (
+                                                        <option key={preset.id} value={preset.id}>{preset.name}</option>
+                                                    ))}
+                                                </select>
+                                                {settings.cinemaGear.presetId && (
+                                                    <p className="text-[10px] text-[var(--text-muted)] mt-1 italic">
+                                                        {CINEMA_PRESETS.find(p => p.id === settings.cinemaGear?.presetId)?.description}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            {/* Manual Overrides */}
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className="text-[10px] text-[var(--text-secondary)] mb-1 block">Camera</label>
+                                                    <select
+                                                        value={settings.cinemaGear.cameraModel}
+                                                        onChange={(e) => setSettings({ ...settings, cinemaGear: { ...settings.cinemaGear!, cameraModel: e.target.value, presetId: undefined } })}
+                                                        className="w-full bg-[var(--bg-main)] text-[var(--text-primary)] p-1.5 rounded-lg border border-[var(--border-color)] text-[10px]"
+                                                    >
+                                                        {CINEMA_CAMERAS.map(cam => (
+                                                            <option key={cam.model} value={cam.model}>{cam.model} ({cam.resolution})</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] text-[var(--text-secondary)] mb-1 block">Lens Kit</label>
+                                                    <select
+                                                        value={settings.cinemaGear.lensSeries}
+                                                        onChange={(e) => setSettings({ ...settings, cinemaGear: { ...settings.cinemaGear!, lensSeries: e.target.value, presetId: undefined } })}
+                                                        className="w-full bg-[var(--bg-main)] text-[var(--text-primary)] p-1.5 rounded-lg border border-[var(--border-color)] text-[10px]"
+                                                    >
+                                                        {CINEMA_LENSES.map(lens => (
+                                                            <option key={lens.series} value={lens.series}>{lens.brand} {lens.series}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <div>
+                                                    <label className="text-[10px] text-[var(--text-secondary)] mb-1 block">Focal Length</label>
+                                                    <select
+                                                        value={settings.cinemaGear.focalLength}
+                                                        onChange={(e) => setSettings({ ...settings, cinemaGear: { ...settings.cinemaGear!, focalLength: e.target.value, presetId: undefined } })}
+                                                        className="w-full bg-[var(--bg-main)] text-[var(--text-primary)] p-1.5 rounded-lg border border-[var(--border-color)] text-[10px]"
+                                                    >
+                                                        {CINEMA_LENSES.find(l => l.series === settings.cinemaGear!.lensSeries)?.focalLengths.map(fl => (
+                                                            <option key={fl} value={fl}>{fl}</option>
+                                                        )) || <option>35mm</option>}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] text-[var(--text-secondary)] mb-1 block">Aperture</label>
+                                                    <input
+                                                        type="text"
+                                                        value={settings.cinemaGear.aperture}
+                                                        onChange={(e) => setSettings({ ...settings, cinemaGear: { ...settings.cinemaGear!, aperture: e.target.value, presetId: undefined } })}
+                                                        className="w-full bg-[var(--bg-main)] text-[var(--text-primary)] p-1.5 rounded-lg border border-[var(--border-color)] text-[10px]"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] text-[var(--text-secondary)] mb-1 block">FPS</label>
+                                                    <select
+                                                        value={settings.cinemaGear.fps}
+                                                        onChange={(e) => setSettings({ ...settings, cinemaGear: { ...settings.cinemaGear!, fps: e.target.value, presetId: undefined } })}
+                                                        className="w-full bg-[var(--bg-main)] text-[var(--text-primary)] p-1.5 rounded-lg border border-[var(--border-color)] text-[10px]"
+                                                    >
+                                                        {['24', '25', '30', '48', '60', '90', '120'].map(f => <option key={f} value={f}>{f}</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            {/* Preview */}
+                                            <div className="mt-2 p-2 bg-black/20 rounded border border-white/5 text-[10px] font-mono text-amber-500/80 break-words">
+                                                [CAMERA: {settings.cinemaGear.cameraModel}] [LENS: {settings.cinemaGear.lensSeries} {settings.cinemaGear.focalLength} {settings.cinemaGear.aperture}]
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                                 {settings.relight?.enabled && (<button onClick={() => toggleSidebar('relight')} className="w-full p-2 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-lg text-xs font-medium flex items-center justify-center gap-2 hover:bg-amber-500/20 transition"><LightBulbIcon className="w-4 h-4" /> Relight Active (Modify in Sidebar)</button>)}
                                 <div className="bg-[var(--bg-input)] rounded-xl p-3 border border-[var(--border-color)]">
