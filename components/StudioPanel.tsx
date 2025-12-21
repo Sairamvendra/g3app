@@ -83,14 +83,14 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
             // Container is wider than target -> Fit to height
             return {
                 height: '100%',
-                width: `calc(100 % * ${targetRatio / containerRatio})`, // Fallback
+                width: `calc(100% * ${targetRatio / containerRatio})`, // Fallback
                 aspectRatio: ratioStr
             };
         } else {
             // Container is narrower -> Fit to width
             return {
                 width: '100%',
-                height: `calc(100 % * ${containerRatio / targetRatio})`, // Fallback
+                height: `calc(100% * ${containerRatio / targetRatio})`, // Fallback
                 aspectRatio: ratioStr
             };
         }

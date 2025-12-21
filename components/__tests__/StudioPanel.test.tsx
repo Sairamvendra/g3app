@@ -37,13 +37,13 @@ describe('StudioPanel', () => {
         const storyBtn = screen.getByTitle('Story Flow');
         fireEvent.click(storyBtn);
         expect(screen.getByRole('heading', { name: 'Story Flow' })).toBeInTheDocument();
-        expect(screen.getByText('1. Upload Page')).toBeInTheDocument();
+        expect(screen.getByText('Upload Page')).toBeInTheDocument();
 
         // Click Characters button
         const charBtn = screen.getByTitle('Characters');
         fireEvent.click(charBtn);
         expect(screen.getByRole('heading', { name: 'Characters' })).toBeInTheDocument();
-        expect(screen.getByText('Create Character')).toBeInTheDocument();
+        expect(screen.getByText('New Character')).toBeInTheDocument();
     });
 
     it('toggles right sidebar (Studio Settings)', () => {

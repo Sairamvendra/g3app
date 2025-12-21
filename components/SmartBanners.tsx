@@ -134,7 +134,7 @@ const SmartBanners: React.FC<SmartBannersProps> = () => {
                                     <p className="text-xs font-bold text-[var(--text-primary)]">Click to Upload</p>
                                     <p className="text-[10px] text-[var(--text-muted)]">Supports JPEG, PNG</p>
                                 </div>
-                                <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleBannerUpload} />
+                                <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleBannerUpload} data-testid="banner-upload" />
                             </>
                         )}
                     </div>

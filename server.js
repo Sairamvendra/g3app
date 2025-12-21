@@ -130,7 +130,7 @@ app.post('/api/generate/image', async (req, res) => {
     let input = { prompt };
 
     // Model-specific parameter mapping
-    if (model === 'black-forest-labs/flux-2-flex') {
+    if (model === 'black-forest-labs/flux-2-flex' || model === 'black-forest-labs/flux-2-max') {
       // Flux 2 Flex parameters
       input.aspect_ratio = aspect_ratio || '1:1';
       input.resolution = image_size || '1 MP';
