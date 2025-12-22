@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AspectRatio, ImageSize, ImageSettings, GeneratedImage, DEFAULT_SETTINGS, LIGHTING_OPTIONS, ANGLE_OPTIONS, MOOD_OPTIONS, FRAMING_OPTIONS, CAMERA_ANGLE_OPTIONS, DI_WORKFLOW_OPTIONS, StoryFlowState, Character, SidebarMode, RelightLight, CharacterReference, VideoSettings, VIDEO_MODELS, VIDEO_DURATIONS, VIDEO_FRAMERATES, ReplicateVideoSettings } from '../types';
 import { generateImageWithReplicate, analyzeStoryboardFlowWithReplicate, generatePersonaPromptWithReplicate, improveVideoPromptWithReplicate, generateVideoWithReplicate, hasValidReplicateApiKey, REPLICATE_VIDEO_MODELS as REPLICATE_MODELS } from '../services/replicateService';
-import { ArrowDownTrayIcon, BoltIcon, PhotoIcon, CheckCircleIcon, XMarkIcon, PlusIcon, VideoCameraIcon, EyeIcon, LinkIcon, PaintBrushIcon, SparklesIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, UserGroupIcon, TrashIcon, CloudArrowDownIcon, LightBulbIcon, FilmIcon, ChevronUpIcon, ChevronDownIcon, PencilSquareIcon, PlayIcon, KeyIcon, ExclamationTriangleIcon, AdjustmentsHorizontalIcon, RectangleGroupIcon, CubeIcon, QueueListIcon, PaperClipIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, BoltIcon, PhotoIcon, CheckCircleIcon, XMarkIcon, PlusIcon, VideoCameraIcon, EyeIcon, LinkIcon, PaintBrushIcon, SparklesIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, UserGroupIcon, TrashIcon, CloudArrowDownIcon, LightBulbIcon, FilmIcon, ChevronUpIcon, ChevronDownIcon, PencilSquareIcon, PlayIcon, KeyIcon, ExclamationTriangleIcon, AdjustmentsHorizontalIcon, RectangleGroupIcon, CubeIcon, QueueListIcon, PaperClipIcon, SwatchIcon } from '@heroicons/react/24/outline';
 import { UserIcon } from '@heroicons/react/24/solid';
 import { MINIMAX_VOICES } from '../types';
 import { CINEMA_CAMERAS, CINEMA_LENSES, CINEMA_PRESETS } from '../data/cinemaGear';
 import CameraControls from './OrbitCamera';
 import RelightPanel from './RelightPanel';
 import SmartBanners from './SmartBanners';
+import ThumbnailStudio from './ThumbnailStudio';
 
 interface StudioPanelProps {
     initialPrompt: string;
@@ -108,6 +109,16 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
         cfgScale: 0.5,
         videoLength: '5s',
         resolution: '720p',
+        cinemaGear: {
+            enabled: false,
+            cameraModel: 'ALEXA 35',
+            lensSeries: 'ARRI Signature Prime',
+            focalLength: '35mm',
+            aperture: 'T1.8',
+            shutter: '180°',
+            iso: '800',
+            fps: '24',
+        }
     });
     const [isReplicateExpanded, setIsReplicateExpanded] = useState(false);
     const [isGeneratingReplicateVideo, setIsGeneratingReplicateVideo] = useState(false);
@@ -693,6 +704,11 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                     <div className="absolute left-14 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition z-50 whitespace-nowrap ml-2">Smart Banners</div>
                     {activeSidebar === 'smart-banners' && <div className="absolute left-0 top-2 bottom-2 w-1 bg-purple-500 rounded-r"></div>}
                 </button>
+                <button onClick={() => toggleSidebar('thumbnail-studio')} className={`p-2 rounded-xl transition-all relative group shadow-sm ${activeSidebar === 'thumbnail-studio' ? 'text-rose-500 bg-[var(--bg-input)] ring-1 ring-rose-500/20' : 'text-[var(--text-muted)] hover:text-rose-500 hover:bg-[var(--bg-hover)]'}`} title="Thumbnail Studio">
+                    <div className="w-6 h-6 flex items-center justify-center"><SwatchIcon className="w-6 h-6" /></div>
+                    <div className="absolute left-14 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition z-50 whitespace-nowrap ml-2">Thumbnail Studio</div>
+                    {activeSidebar === 'thumbnail-studio' && <div className="absolute left-0 top-2 bottom-2 w-1 bg-rose-500 rounded-r"></div>}
+                </button>
             </div>
 
             {/* Expansible Sidebar Content */}
@@ -829,6 +845,131 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                                         <textarea value={videoSettings.motionPrompt} onChange={(e) => setVideoSettings({ ...videoSettings, motionPrompt: e.target.value })} placeholder={prompt ? "Using main prompt..." : "Describe motion..."} className="w-full h-20 bg-[var(--bg-input)] text-[var(--text-primary)] p-3 text-xs rounded-xl border border-[var(--border-color)] resize-none outline-none focus:border-emerald-500 transition" />
                                     </div>
 
+                                    {/* Cinema Camera Gear (Video Mode) */}
+                                    <div className="space-y-3 p-3 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)]">
+                                        <h4 className="text-xs font-bold text-[var(--text-primary)] flex items-center justify-between">
+                                            <span className="flex items-center gap-2"><FilmIcon className="w-3 h-3 text-emerald-500" /> Cinema Camera Gear</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={replicateVideoSettings.cinemaGear?.enabled || false}
+                                                onChange={(e) => setReplicateVideoSettings({
+                                                    ...replicateVideoSettings,
+                                                    cinemaGear: { ...replicateVideoSettings.cinemaGear!, enabled: e.target.checked }
+                                                })}
+                                                className="toggle toggle-xs toggle-success"
+                                            />
+                                        </h4>
+
+                                        {replicateVideoSettings.cinemaGear?.enabled && (
+                                            <div className="space-y-3 pt-2">
+                                                {/* Presets */}
+                                                <div>
+                                                    <label className="text-xs text-[var(--text-secondary)] mb-1 block">Quick Setup</label>
+                                                    <select
+                                                        value={replicateVideoSettings.cinemaGear.presetId || ''}
+                                                        onChange={(e) => {
+                                                            const preset = CINEMA_PRESETS.find(p => p.id === e.target.value);
+                                                            if (preset) {
+                                                                setReplicateVideoSettings({
+                                                                    ...replicateVideoSettings,
+                                                                    cinemaGear: {
+                                                                        ...replicateVideoSettings.cinemaGear!,
+                                                                        enabled: true,
+                                                                        presetId: preset.id,
+                                                                        ...preset.settings
+                                                                    }
+                                                                });
+                                                            } else {
+                                                                setReplicateVideoSettings({
+                                                                    ...replicateVideoSettings,
+                                                                    cinemaGear: { ...replicateVideoSettings.cinemaGear!, presetId: undefined }
+                                                                });
+                                                            }
+                                                        }}
+                                                        className="w-full bg-[var(--bg-main)] text-[var(--text-primary)] p-2 rounded-lg border border-[var(--border-color)] text-xs outline-none focus:border-amber-500"
+                                                    >
+                                                        <option value="">Custom / Manual</option>
+                                                        {CINEMA_PRESETS.map(preset => (
+                                                            <option key={preset.id} value={preset.id}>{preset.name}</option>
+                                                        ))}
+                                                    </select>
+                                                    {replicateVideoSettings.cinemaGear.presetId && (
+                                                        <p className="text-[10px] text-[var(--text-muted)] mt-1 italic">
+                                                            {CINEMA_PRESETS.find(p => p.id === replicateVideoSettings.cinemaGear?.presetId)?.description}
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                {/* Manual Overrides */}
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div>
+                                                        <label className="text-[10px] text-[var(--text-secondary)] mb-1 block">Camera</label>
+                                                        <select
+                                                            value={replicateVideoSettings.cinemaGear.cameraModel}
+                                                            onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, cinemaGear: { ...replicateVideoSettings.cinemaGear!, cameraModel: e.target.value, presetId: undefined } })}
+                                                            className="w-full bg-[var(--bg-main)] text-[var(--text-primary)] p-1.5 rounded-lg border border-[var(--border-color)] text-[10px]"
+                                                        >
+                                                            {CINEMA_CAMERAS.map(cam => (
+                                                                <option key={cam.model} value={cam.model}>{cam.model} ({cam.resolution})</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] text-[var(--text-secondary)] mb-1 block">Lens Kit</label>
+                                                        <select
+                                                            value={replicateVideoSettings.cinemaGear.lensSeries}
+                                                            onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, cinemaGear: { ...replicateVideoSettings.cinemaGear!, lensSeries: e.target.value, presetId: undefined } })}
+                                                            className="w-full bg-[var(--bg-main)] text-[var(--text-primary)] p-1.5 rounded-lg border border-[var(--border-color)] text-[10px]"
+                                                        >
+                                                            {CINEMA_LENSES.map(lens => (
+                                                                <option key={lens.series} value={lens.series}>{lens.brand} {lens.series}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <div>
+                                                        <label className="text-[10px] text-[var(--text-secondary)] mb-1 block">Focal Length</label>
+                                                        <select
+                                                            value={replicateVideoSettings.cinemaGear.focalLength}
+                                                            onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, cinemaGear: { ...replicateVideoSettings.cinemaGear!, focalLength: e.target.value, presetId: undefined } })}
+                                                            className="w-full bg-[var(--bg-main)] text-[var(--text-primary)] p-1.5 rounded-lg border border-[var(--border-color)] text-[10px]"
+                                                        >
+                                                            {CINEMA_LENSES.find(l => l.series === replicateVideoSettings.cinemaGear!.lensSeries)?.focalLengths.map(fl => (
+                                                                <option key={fl} value={fl}>{fl}</option>
+                                                            )) || <option>35mm</option>}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] text-[var(--text-secondary)] mb-1 block">Aperture</label>
+                                                        <input
+                                                            type="text"
+                                                            value={replicateVideoSettings.cinemaGear.aperture}
+                                                            onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, cinemaGear: { ...replicateVideoSettings.cinemaGear!, aperture: e.target.value, presetId: undefined } })}
+                                                            className="w-full bg-[var(--bg-main)] text-[var(--text-primary)] p-1.5 rounded-lg border border-[var(--border-color)] text-[10px]"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] text-[var(--text-secondary)] mb-1 block">FPS</label>
+                                                        <select
+                                                            value={replicateVideoSettings.cinemaGear.fps}
+                                                            onChange={(e) => setReplicateVideoSettings({ ...replicateVideoSettings, cinemaGear: { ...replicateVideoSettings.cinemaGear!, fps: e.target.value, presetId: undefined } })}
+                                                            className="w-full bg-[var(--bg-main)] text-[var(--text-primary)] p-1.5 rounded-lg border border-[var(--border-color)] text-[10px]"
+                                                        >
+                                                            {['24', '25', '30', '48', '60', '90', '120'].map(f => <option key={f} value={f}>{f}</option>)}
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                {/* Preview */}
+                                                <div className="mt-2 p-2 bg-black/20 rounded border border-white/5 text-[10px] font-mono text-amber-500/80 break-words">
+                                                    [CAMERA: {replicateVideoSettings.cinemaGear.cameraModel}] [LENS: {replicateVideoSettings.cinemaGear.lensSeries} {replicateVideoSettings.cinemaGear.focalLength} {replicateVideoSettings.cinemaGear.aperture}]
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     {/* Model Selector */}
                                     <div className="space-y-1">
                                         <label className="text-[10px] text-[var(--text-muted)] block">Video Model</label>
@@ -942,7 +1083,8 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                             );
                         })()}
                     </div >
-                )}
+                )
+                }
             </div >
 
             {/* Smart Banners Module (Persisted) */}
@@ -950,8 +1092,13 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                 <SmartBanners />
             </div>
 
+            {/* Thumbnail Studio Module */}
+            <div className={`flex-1 min-w-0 ${activeSidebar === 'thumbnail-studio' ? 'block' : 'hidden'}`}>
+                <ThumbnailStudio />
+            </div>
+
             {/* Main Visual Studio Module */}
-            <div className={`flex-1 flex flex-col h-full min-w-0 transition-all duration-300 ${activeSidebar === 'smart-banners' ? 'hidden' : 'flex'}`}>
+            <div className={`flex-1 flex flex-col h-full min-w-0 transition-all duration-300 ${['smart-banners', 'thumbnail-studio'].includes(activeSidebar) ? 'hidden' : 'flex'}`}>
                 <div className="p-2 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-none sticky top-0 z-10">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">

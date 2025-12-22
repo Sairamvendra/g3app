@@ -115,9 +115,21 @@ export const generateVideoWithReplicate = async (
     throw new Error(`Unknown model: ${settings.model}`);
   }
 
+  // Cinema Gear Injection
+  let videoPrompt = prompt || 'A cinematic video scene';
+  if (settings.cinemaGear && settings.cinemaGear.enabled) {
+    const cg = settings.cinemaGear;
+    const parts = [
+      `[CAMERA: ${cg.cameraModel}, ISO ${cg.iso || '800'}]`,
+      `[LENS: ${cg.lensSeries}, ${cg.focalLength}, ${cg.aperture}]`,
+      `[FPS: ${cg.fps}]`
+    ];
+    videoPrompt += `\n\n[CINEMATOGRAPHY GEAR]:\n${parts.join('\n')}`;
+  }
+
   // Prepare input based on model type and available inputs
   const input: Record<string, any> = {
-    prompt: prompt || 'A cinematic video scene',
+    prompt: videoPrompt,
   };
 
   // Model-specific configurations
@@ -900,21 +912,21 @@ NEGATIVE PROMPT / EXCLUSIONS:
 
 export const BANNER_SYSTEM_PROMPT = `
 ROLE: Banner Reframing Specialist
-MISSION: Adapt banner to new aspect ratio while preserving ALL content integrity.
-
-ABSOLUTE RULES (NEVER BREAK):
-- Never alter, remove, or crop: text, fonts, characters, faces, logos, CTAs, products, infographics.
-- Never generate new objects, elements, or content.
+MISSION: Expand the image to new dimension, Adapt banner to new aspect ratio while preserving ALL content integrity.
+- Generate new objects, elements, or content to fill the new crop space.
 - Never change colors, typography, or brand elements.
 
 PERMITTED ACTIONS:
 - Reposition existing elements for new canvas.
 - Extend/duplicate backgrounds (solid colors, gradients, patterns).
-- Content-aware fill on empty/background areas ONLY.
+- Content-aware fill on empty/background areas.
 - Adjust spacing between element groups.
 
 DECISION FRAMEWORK:
-When space is limited, prioritize: CTA Button > Main Headline > Talent/Characters > Brand Logo > Supporting Text.
+When space is limited, prioritize: Brand Logo > CTA Button > Main Headline > Talent/Characters > Supporting Text.
+
+ABSOLUTE RULES (NEVER BREAK):
+- Never remove, or crop: text, fonts, characters, faces, logos, CTAs, products, infographics
 `.trim();
 
 export const reframeBannerWithReplicate = async (
@@ -965,10 +977,11 @@ export const reframeBannerWithReplicate = async (
 
 export const editBannerWithReplicate = async (
   bannerImage: string,
-  userInstruction: string
+  userInstruction: string,
+  aspectRatio: string
 ): Promise<string> => {
   try {
-    console.log('Editing banner via server...', { instruction: userInstruction });
+    console.log('Editing banner via server...', { instruction: userInstruction, aspectRatio });
 
     const prompt = `
 ROLE: Image Editor
@@ -991,6 +1004,7 @@ GUIDELINES:
         prompt: prompt,
         image_input: [bannerImage], // Helper logic in server.js maps this to inputs
         image_size: '2K',
+        aspect_ratio: aspectRatio,
         output_format: 'png',
         safety_filter_level: 'block_only_high'
       }),
@@ -1012,3 +1026,70 @@ GUIDELINES:
     throw new Error(`Banner editing failed: ${error.message || 'Unknown error'}`);
   }
 };
+
+// ============================================================================
+// THUMBNAIL STUDIO FUNCTIONS
+// ============================================================================
+
+export const generateLogoWithReplicate = async (
+  prompt: string,
+  referenceImage?: string | null
+): Promise<{ result: string, baseImage: string }> => {
+  try {
+    console.log('[ThumbnailStudio] Requesting logo generation...', { prompt });
+    const body: any = { prompt };
+    if (referenceImage) body.referenceImage = referenceImage; // Assumes prepared base64 or URL
+
+    const response = await fetch('http://localhost:3002/api/generate-logo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    console.log(`[ThumbnailStudio] Logo API response status: ${response.status}`);
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Server error');
+    }
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Generation failed');
+    return { result: data.result, baseImage: data.baseImage };
+
+  } catch (error: any) {
+    console.error('Logo generation error:', error);
+    if (error.message.includes('Failed to fetch')) {
+      console.error('POSSIBLE CAUSE: Backend server is not running or accessible at http://localhost:3002. Check technical logs.');
+    }
+    throw new Error(`Logo generation failed: ${error.message}`);
+  }
+};
+
+export const generateKeyArtWithReplicate = async (
+  description: string,
+  mood: string,
+  referenceImage?: string | null
+): Promise<string> => {
+  try {
+    const body: any = { description, mood };
+    if (referenceImage) body.referenceImage = referenceImage;
+
+    const response = await fetch('http://localhost:3002/api/generate-keyart', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Server error');
+    }
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Generation failed');
+    return data.result;
+
+  } catch (error: any) {
+    console.error('Key-Art generation error:', error);
+    throw new Error(`Key-Art generation failed: ${error.message}`);
+  }
+};
+

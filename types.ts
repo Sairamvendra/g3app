@@ -112,7 +112,7 @@ export interface Character {
   imageBase64: string;
 }
 
-export type SidebarMode = 'none' | 'story' | 'characters' | 'relight' | 'settings' | 'video' | 'smart-banners';
+export type SidebarMode = 'none' | 'story' | 'characters' | 'relight' | 'settings' | 'video' | 'smart-banners' | 'thumbnail-studio';
 
 export const DEFAULT_CAMERA_SETTINGS: CameraSettings = {
   rotation: 0,
@@ -253,6 +253,7 @@ export interface ReplicateVideoSettings {
   interpolateOutput?: boolean;
   cameraFixed?: boolean;
   referenceImages?: string[];
+  cinemaGear?: CinemaGearSettings;
 }
 
 export const REPLICATE_VIDEO_MODELS = [
@@ -268,3 +269,40 @@ export const MINIMAX_VOICES = [
   { id: 'voice-01', name: 'Voice 1' },
   { id: 'voice-02', name: 'Voice 2' },
 ];
+
+export interface CanvasElement {
+  id: string;
+  type: 'logo' | 'keyart' | 'text' | 'image';
+  src?: string;
+  text?: string;
+  x: number;
+  y: number;
+  width?: number; // Initial width for scaling reference
+  height?: number;
+  scale: number;
+  rotation: number;
+  zIndex: number;
+  opacity: number;
+}
+
+export interface ThumbnailState {
+  step: 'logo' | 'keyart' | 'compose';
+  logoSettings: {
+    text: string;
+    referenceImage?: string; // Base64
+  };
+  keyArtSettings: {
+    description: string;
+    mood: string;
+    referenceImage?: string; // Base64
+  };
+  generatedAssets: {
+    logos: string[];
+    keyArts: string[];
+  };
+  canvas: {
+    ratio: string;
+    elements: CanvasElement[];
+    activeElementId: string | null;
+  };
+}

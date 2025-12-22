@@ -69,7 +69,7 @@ const SmartBanners: React.FC<SmartBannersProps> = () => {
 
         setIsEditing(true);
         try {
-            const newItemUrl = await editBannerWithReplicate(editingAsset.url, editPrompt);
+            const newItemUrl = await editBannerWithReplicate(editingAsset.url, editPrompt, editingAsset.ratio);
 
             // Update the asset in the grid
             setGeneratedAssets(prev => prev.map((asset, i) =>

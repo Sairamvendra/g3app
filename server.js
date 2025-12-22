@@ -484,6 +484,118 @@ app.post('/api/generate/video', async (req, res) => {
   }
 });
 
+// Thumbnail Studio - Logo Generation
+app.post('/api/generate-logo', async (req, res) => {
+  try {
+    const { prompt, referenceImage } = req.body;
+
+    logger.request('/api/generate-logo', { prompt, hasRefImage: !!referenceImage });
+
+    // 1. Construct prompt
+    const enhancedPrompt = `${prompt}, solid background, high contrast, centered composition, high quality`;
+
+    const input = {
+      prompt: enhancedPrompt,
+      aspect_ratio: '3:2',
+      resolution: '2K',
+      output_format: 'png',
+      safety_filter_level: 'block_only_high'
+    };
+
+    if (referenceImage) {
+      input.image_input = [referenceImage];
+    }
+
+    // 2. Generate Base Logo
+    console.log('Generating base logo with google/nano-banana-pro...');
+    const logoOutput = await replicate.run('google/nano-banana-pro', { input });
+
+    let logoUrl = extractUrlFromOutput(logoOutput);
+    console.log('Base logo generated:', logoUrl);
+
+    // 3. Remove Background
+    console.log('Removing background with recraft-ai/recraft-remove-background...');
+    const bgRemovalOutput = await replicate.run('recraft-ai/recraft-remove-background', {
+      input: {
+        image: logoUrl
+      }
+    });
+
+    let transparentLogoUrl = extractUrlFromOutput(bgRemovalOutput);
+    console.log('Background removed:', transparentLogoUrl);
+
+    res.json({ success: true, result: transparentLogoUrl, baseImage: logoUrl });
+
+  } catch (error) {
+    logger.error('/api/generate-logo', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to generate logo' });
+  }
+});
+
+// Thumbnail Studio - Key-Art Generation
+app.post('/api/generate-keyart', async (req, res) => {
+  try {
+    const { description, mood, referenceImage } = req.body;
+
+    logger.request('/api/generate-keyart', { description, mood, hasRefImage: !!referenceImage });
+
+    // 1. Construct Composition Prompt
+    const compositionPrompt = `${description}, cinematic composition with all key subjects positioned in the exact center of the frame, surrounding area contains only atmospheric background elements, professional advertising photography style, ${mood || 'cinematic'}`;
+
+    const input = {
+      prompt: compositionPrompt,
+      aspect_ratio: '16:9',
+      resolution: '4K',
+      output_format: 'png',
+      safety_filter_level: 'block_only_high'
+    };
+
+    if (referenceImage) {
+      input.image = referenceImage;
+      input.image_prompt = referenceImage;
+    }
+
+    console.log('Generating key-art with google/nano-banana-pro...');
+    const output = await replicate.run('google/nano-banana-pro', { input });
+
+    const imageUrl = extractUrlFromOutput(output);
+    console.log('Key-art generated:', imageUrl);
+
+    res.json({ success: true, result: imageUrl });
+
+  } catch (error) {
+    logger.error('/api/generate-keyart', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to generate key-art' });
+  }
+});
+
+// Helper function to extract URL from various Replicate output formats
+function extractUrlFromOutput(output) {
+  let url;
+  if (output && typeof output === 'object' && output.url) {
+    url = typeof output.url === 'function' ? output.url() : output.url;
+  } else if (typeof output === 'string') {
+    url = output;
+  } else if (Array.isArray(output) && output.length > 0) {
+    const firstItem = output[0];
+    if (firstItem && typeof firstItem === 'object' && firstItem.url) {
+      url = typeof firstItem.url === 'function' ? firstItem.url() : firstItem.url;
+    } else {
+      url = firstItem;
+    }
+  }
+
+  if (url && typeof url === 'object' && url.toString) {
+    url = url.toString();
+  }
+
+  if (!url || typeof url !== 'string') {
+    throw new Error('Failed to extract URL from Replicate output: ' + JSON.stringify(output));
+  }
+
+  return url;
+}
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 StudioProMax API Server running on http://localhost:${PORT}`);

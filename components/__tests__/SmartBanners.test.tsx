@@ -156,7 +156,8 @@ describe('SmartBanners', () => {
         // --- 5. ASSERT: Service Called ---
         expect(mockEdit).toHaveBeenCalledWith(
             'http://mock.com/banner_16_9.png', // The original mocked return from reframe
-            'Make it pop'
+            'Make it pop',
+            '1:1'
         );
 
         // --- 6. ASSERT: Modal closes ---
