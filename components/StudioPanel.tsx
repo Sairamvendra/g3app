@@ -48,6 +48,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
         motionPrompt: ''
     });
     const [videoFrames, setVideoFrames] = useState<{ start: string | null, end: string | null }>({ start: null, end: null });
+    const [importedAssets, setImportedAssets] = useState<string[]>([]); // Assets sent to Thumbnail Studio
     const [isVideoExpanded, setIsVideoExpanded] = useState(false);
     const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
     const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
@@ -545,6 +546,12 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
         }
         const lastImage = generatedImages[generatedImages.length - 1];
         setSettings(prev => ({ ...prev, referenceImages: [...prev.referenceImages, lastImage.url] }));
+    };
+
+    const handleSendToComp = () => {
+        if (!currentImage) return;
+        setImportedAssets(prev => [...prev, currentImage.url]);
+        setActiveSidebar('thumbnail-studio');
     };
 
     const currentImage = generatedImages.length > 0 ? generatedImages[selectedImageIndex] : null;
@@ -1094,7 +1101,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
 
             {/* Thumbnail Studio Module */}
             <div className={`flex-1 min-w-0 ${activeSidebar === 'thumbnail-studio' ? 'block' : 'hidden'}`}>
-                <ThumbnailStudio />
+                <ThumbnailStudio externalAssets={importedAssets} />
             </div>
 
             {/* Main Visual Studio Module */}
@@ -1222,6 +1229,11 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                                 <a href={currentImage.url} download={`gemini-studio-render-${Date.now()}.png`} className="flex-1 md:flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
                                     <ArrowDownTrayIcon className="w-4 h-4" /> Download Image
                                 </a>
+                            )}
+                            {!generatedVideoUrl && !generatedReplicateVideoUrl && currentImage && (
+                                <button onClick={handleSendToComp} className="flex-1 md:flex-none bg-pink-600 hover:bg-pink-500 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-pink-500/20 transition flex items-center justify-center gap-2 text-sm whitespace-nowrap cursor-pointer z-30">
+                                    <SparklesIcon className="w-4 h-4" /> Send to Comp
+                                </button>
                             )}
                         </div>
                     </div>

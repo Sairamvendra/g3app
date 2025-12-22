@@ -34,7 +34,13 @@ const ASPECT_RATIOS = [
     { label: '4:5 (Portrait Medium)', value: '4:5' },
 ];
 
-const ThumbnailStudio: React.FC = () => {
+
+
+interface ThumbnailStudioProps {
+    externalAssets?: string[];
+}
+
+const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [] }) => {
     const [state, setState] = useState<ThumbnailState>({
         step: 'logo',
         logoSettings: { text: '' },
@@ -118,7 +124,7 @@ const ThumbnailStudio: React.FC = () => {
             src,
             x: 50, // Center percent
             y: 50,
-            scale: 1,
+            scale: 0.4, // Default to 40% of canvas width
             rotation: 0,
             zIndex: state.canvas.elements.length + 1,
             opacity: 1
@@ -244,32 +250,14 @@ const ThumbnailStudio: React.FC = () => {
 
                     ctx.translate(x, y);
                     ctx.rotate((el.rotation * Math.PI) / 180);
-                    ctx.scale(el.scale, el.scale);
                     ctx.globalAlpha = el.opacity;
 
-                    // Draw centered
-                    // Maintain aspect ratio of the image itself
-                    // We assume 'scale' usually relates to the canvas size, but capturing raw image size is better for quality
-                    // Let's deduce a "base size" relative to canvas. 
-                    // To mimic CSS "width: auto" behavior, we need to know the natural aspect of the image vs canvas
-                    // A simple heuristic: logos (usually small) vs keyart (usually covers)
-                    // For now, let's draw strictly based on natural size scaled by 'scale' relative to canvas size?
-                    // Actually, the CSS view renders them based on their natural size? No, `img` tags in divs just render at intrinsic size unless constrained.
-                    // But in our CSS we don't constrain them! Wait, `img` in `div` without width/height set will render intrinsic.
-                    // This might be huge (4K image) on a small canvas.
-                    // Let's assume we want to match visually what is on screen.
-                    // The CSS preview has `max-width: 100%` usually? No, I implemented it as absolute position image...
-                    // Let's check the CSS implementation:
-                    // style={{ position: 'absolute', transform: ...,  }}
-                    // It doesn't restrict width. So an image with 4000px width will blow up the container if strict overflow hidden wasn't there.
-                    // THIS IS A BUG in my CSS implementation that I should fix too.
-                    // I should normalize images to a "standard" size relative to canvas width, e.g. 50% of canvas width.
+                    // Scale Logic: percentage of canvas WIDTH
+                    const drawWidth = width * el.scale;
+                    const aspect = img.naturalWidth / img.naturalHeight;
+                    const drawHeight = drawWidth / aspect;
 
-                    // Improved Export Logic:
-                    // Draw image at natural size? No, that depends on how it looked in DOM.
-                    // In DOM, if I didn't set width, it is natural size.
-                    // So if I draw it at natural size here, it matches DOM.
-                    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+                    ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
 
                     ctx.restore();
                     resolve();
@@ -388,6 +376,14 @@ const ThumbnailStudio: React.FC = () => {
                         <section>
                             <label className="text-xs font-bold text-gray-400 block mb-2">Available Assets</label>
                             <div className="grid grid-cols-2 gap-2 overflow-y-auto max-h-60 p-2 bg-black/20 rounded-lg">
+                                {/* External Assets from Visual Studio */}
+                                {externalAssets.length > 0 && externalAssets.map((url, i) => (
+                                    <div key={`ext-${i}`} className="relative group">
+                                        <span className="absolute top-1 left-1 z-10 bg-pink-500 text-white text-[8px] px-1 rounded-sm uppercase font-bold tracking-wider">Imported</span>
+                                        <img src={url} alt="Imported Asset" onClick={() => addToCanvas('keyart', url)} className="rounded border border-white/10 cursor-pointer hover:border-pink-500 w-full h-20 object-cover" />
+                                    </div>
+                                ))}
+
                                 {state.generatedAssets.keyArts.map((url, i) => (
                                     <img key={`ka-${i}`} src={url} alt="KA" onClick={() => addToCanvas('keyart', url)} className="rounded border border-white/10 cursor-pointer hover:border-pink-500 w-full h-20 object-cover" />
                                 ))}
@@ -484,59 +480,64 @@ const ThumbnailStudio: React.FC = () => {
                     </div>
                 ) : (
                     // Composer Canvas
-                    <div
-                        ref={canvasRef}
-                        className="bg-black relative overflow-hidden shadow-2xl transition-all duration-300"
-                        onMouseMove={handleMouseMove}
-                        style={{
-                            aspectRatio: state.canvas.ratio.replace(':', '/'),
-                            height: '80%',
-                            maxHeight: '80vh',
-                            maxWidth: '100%',
-                            boxShadow: '0 0 50px rgba(0,0,0,0.5)',
-                            backgroundImage: 'linear-gradient(45deg, #1a1a1a 25%, transparent 25%), linear-gradient(-45deg, #1a1a1a 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #1a1a1a 75%), linear-gradient(-45deg, transparent 75%, #1a1a1a 75%)',
-                            backgroundSize: '20px 20px',
-                            backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px'
-                        }}
-                        onClick={() => setState(p => ({ ...p, canvas: { ...p.canvas, activeElementId: null } }))}
-                    >
-                        {/* Render Elements */}
-                        {state.canvas.elements.sort((a, b) => a.zIndex - b.zIndex).map(el => (
+                    (() => {
+                        const [w, h] = state.canvas.ratio.split(':').map(Number);
+                        const isTall = h > w;
+                        return (
                             <div
-                                key={el.id}
-                                onMouseDown={(e) => handleMouseDown(e, el.id)}
+                                ref={canvasRef}
+                                className="bg-black relative overflow-hidden shadow-2xl transition-all duration-300 group"
+                                onMouseMove={handleMouseMove}
                                 style={{
-                                    position: 'absolute',
-                                    left: `${el.x}%`,
-                                    top: `${el.y}%`,
-                                    transform: `translate(-50%, -50%) rotate(${el.rotation}deg) scale(${el.scale})`,
-                                    opacity: el.opacity,
-                                    cursor: isDragging && state.canvas.activeElementId === el.id ? 'grabbing' : 'grab',
-                                    zIndex: el.zIndex,
-                                    userSelect: 'none',
-                                    pointerEvents: 'auto'
+                                    aspectRatio: state.canvas.ratio.replace(':', '/'),
+                                    height: isTall ? '80vh' : 'auto',
+                                    width: isTall ? 'auto' : '100%',
+                                    maxHeight: '80vh',
+                                    maxWidth: '100%',
+                                    boxShadow: '0 0 50px rgba(0,0,0,0.5)',
+                                    backgroundImage: 'linear-gradient(45deg, #1a1a1a 25%, transparent 25%), linear-gradient(-45deg, #1a1a1a 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #1a1a1a 75%), linear-gradient(-45deg, transparent 75%, #1a1a1a 75%)',
+                                    backgroundSize: '20px 20px',
+                                    backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px'
                                 }}
+                                onClick={() => setState(p => ({ ...p, canvas: { ...p.canvas, activeElementId: null } }))}
                             >
-                                <img
-                                    src={el.src}
-                                    alt={el.type}
-                                    className={`pointer-events-none ${state.canvas.activeElementId === el.id ? 'ring-2 ring-indigo-500 shadow-xl' : ''}`}
-                                    style={{
-                                        // Ensure image has some intrinsic dimension if needed, but 'auto' usually works
-                                        maxWidth: 'none', // Prevent constraint
-                                        display: 'block'
-                                    }}
-                                />
-                            </div>
-                        ))}
+                                {/* Render Elements */}
+                                {state.canvas.elements.sort((a, b) => a.zIndex - b.zIndex).map(el => (
+                                    <div
+                                        key={el.id}
+                                        onMouseDown={(e) => handleMouseDown(e, el.id)}
+                                        onClick={(e) => { e.stopPropagation(); }} // Prevent deselection
+                                        style={{
+                                            position: 'absolute',
+                                            left: `${el.x}%`,
+                                            top: `${el.y}%`,
+                                            width: `${el.scale * 100}%`, // Scale controls width relative to canvas
+                                            transform: `translate(-50%, -50%) rotate(${el.rotation}deg)`,
+                                            opacity: el.opacity,
+                                            cursor: isDragging && state.canvas.activeElementId === el.id ? 'grabbing' : 'grab',
+                                            zIndex: el.zIndex,
+                                            userSelect: 'none',
+                                            pointerEvents: 'auto'
+                                        }}
+                                    >
+                                        <img
+                                            src={el.src}
+                                            alt={el.type}
+                                            className={`pointer-events-none w-full h-auto ${state.canvas.activeElementId === el.id ? 'ring-2 ring-indigo-500 shadow-xl' : ''}`}
+                                            style={{ display: 'block' }}
+                                        />
+                                    </div>
+                                ))}
 
-                        {/* Empty Canvas Hint */}
-                        {state.canvas.elements.length === 0 && (
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
-                                <p className="text-white text-sm font-medium">Drag & Drop Assets to Compose</p>
+                                {/* Empty Canvas Hint */}
+                                {state.canvas.elements.length === 0 && (
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
+                                        <p className="text-white text-sm font-medium">Drag & Drop Assets to Compose</p>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
+                        );
+                    })()
                 )}
             </div>
         </div>
