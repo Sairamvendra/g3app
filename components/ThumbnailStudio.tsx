@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ThumbnailState, CanvasElement } from '../types';
 import * as replicateService from '../services/replicateService';
-import { ArrowDownTrayIcon, SparklesIcon, TrashIcon, SwatchIcon, ComputerDesktopIcon, DevicePhoneMobileIcon, StopIcon, RectangleStackIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, SparklesIcon, TrashIcon, SwatchIcon, ComputerDesktopIcon, DevicePhoneMobileIcon, StopIcon, RectangleStackIcon, EyeIcon, EyeSlashIcon, LockClosedIcon, LockOpenIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 
 const LOGO_STYLES = [
     'Minimal/Clean',
@@ -127,6 +127,9 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [], 
             const newElement: CanvasElement = {
                 id: Date.now().toString(),
                 type: 'fade',
+                name: `Fade Layer ${state.canvas.elements.filter(e => e.type === 'fade').length + 1}`,
+                visible: true,
+                locked: false,
                 x: 50,
                 y: 50,
                 scale: 1,
@@ -169,6 +172,9 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [], 
             const newElement: CanvasElement = {
                 id: Date.now().toString(),
                 type: 'logo', // Default fallback, overridden below
+                name: `${type === 'keyart' ? 'Key Art' : 'Logo'} ${state.canvas.elements.filter(e => e.type === type).length + 1}`,
+                visible: true,
+                locked: false,
                 src,
                 x,
                 y,
@@ -197,26 +203,135 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [], 
 
     const deleteElement = () => {
         if (state.canvas.activeElementId) {
-            setState(prev => ({
-                ...prev,
-                canvas: {
-                    ...prev.canvas,
-                    elements: prev.canvas.elements.filter(e => e.id !== prev.canvas.activeElementId),
-                    activeElementId: null
-                }
-            }));
+            handleRemoveLayer(state.canvas.activeElementId);
         }
+    };
+
+    const handleRemoveLayer = (id: string) => {
+        setState(prev => ({
+            ...prev,
+            canvas: {
+                ...prev.canvas,
+                elements: prev.canvas.elements.filter(e => e.id !== id),
+                activeElementId: prev.canvas.activeElementId === id ? null : prev.canvas.activeElementId
+            }
+        }));
+    };
+
+    const moveLayer = (id: string, direction: 'up' | 'down') => {
+        setState(prev => {
+            const elements = [...prev.canvas.elements].sort((a, b) => a.zIndex - b.zIndex);
+            const index = elements.findIndex(e => e.id === id);
+            if (index === -1) return prev;
+
+            if (direction === 'up' && index < elements.length - 1) {
+                // Swap zIndex with next element
+                const currentZ = elements[index].zIndex;
+                const nextZ = elements[index + 1].zIndex;
+                elements[index].zIndex = nextZ;
+                elements[index + 1].zIndex = currentZ;
+            } else if (direction === 'down' && index > 0) {
+                // Swap zIndex with prev element
+                const currentZ = elements[index].zIndex;
+                const prevZ = elements[index - 1].zIndex;
+                elements[index].zIndex = prevZ;
+                elements[index - 1].zIndex = currentZ;
+            }
+
+            return {
+                ...prev,
+                canvas: { ...prev.canvas, elements }
+            };
+        });
+    };
+
+    const toggleLayerVisibility = (id: string) => {
+        setState(prev => ({
+            ...prev,
+            canvas: {
+                ...prev.canvas,
+                elements: prev.canvas.elements.map(el =>
+                    el.id === id ? { ...el, visible: !el.visible } : el
+                )
+            }
+        }));
+    };
+
+    const toggleLayerLock = (id: string) => {
+        setState(prev => ({
+            ...prev,
+            canvas: {
+                ...prev.canvas,
+                elements: prev.canvas.elements.map(el =>
+                    el.id === id ? { ...el, locked: !el.locked } : el
+                )
+            }
+        }));
+    };
+
+    // --- DRAG AND DROP LAYERS ---
+    const [draggingLayerId, setDraggingLayerId] = useState<string | null>(null);
+
+    const handleLayerDragStart = (e: React.DragEvent, id: string) => {
+        setDraggingLayerId(id);
+        e.dataTransfer.effectAllowed = 'move';
+        // Optional: Set custom drag image or data
+    };
+
+    const handleLayerDragOver = (e: React.DragEvent) => {
+        e.preventDefault(); // Necessary to allow dropping
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleLayerDrop = (e: React.DragEvent, targetId: string) => {
+        e.preventDefault();
+        if (!draggingLayerId || draggingLayerId === targetId) return;
+
+        setState(prev => {
+            const elements = [...prev.canvas.elements].sort((a, b) => a.zIndex - b.zIndex);
+            const fromIndex = elements.findIndex(e => e.id === draggingLayerId);
+            const toIndex = elements.findIndex(e => e.id === targetId);
+
+            if (fromIndex === -1 || toIndex === -1) return prev;
+
+            // Remove dragged element
+            const [movedElement] = elements.splice(fromIndex, 1);
+            // Insert at new position
+            elements.splice(toIndex, 0, movedElement);
+
+            // Reassign zIndex based on new order
+            const updatedElements = elements.map((el, index) => ({
+                ...el,
+                zIndex: index + 1
+            }));
+
+            return {
+                ...prev,
+                canvas: { ...prev.canvas, elements: updatedElements }
+            };
+        });
+        setDraggingLayerId(null);
     };
 
     // --- COMPOSER LOGIC ---
     const [isDragging, setIsDragging] = useState(false);
+    const [isLayersPanelExpanded, setIsLayersPanelExpanded] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const canvasRef = useRef<HTMLDivElement>(null);
 
     const handleMouseDown = (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
         e.preventDefault();
+
+        // Check if locked
+        const el = state.canvas.elements.find(e => e.id === id);
+
+        // Always set active for selection (e.g. to unlock it or delete it)
         setState(prev => ({ ...prev, canvas: { ...prev.canvas, activeElementId: id } }));
+
+        // But don't start dragging if locked
+        if (el?.locked) return;
+
         setIsDragging(true);
         setDragStart({ x: e.clientX, y: e.clientY });
     };
@@ -627,78 +742,145 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [], 
                         )}
                     </div>
                 ) : (
-                    // Composer Canvas
-                    (() => {
-                        const [w, h] = state.canvas.ratio.split(':').map(Number);
-                        const isTall = h > w;
-                        return (
+                    <>
+                        {/* Layers Panel */}
+                        <div className={`absolute top-4 left-4 z-50 transition-all duration-300 bg-[#1a1a1a]/95 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col ${isLayersPanelExpanded ? 'w-64 max-h-[500px]' : 'w-auto max-h-12'}`}>
+                            {/* Header */}
                             <div
-                                ref={canvasRef}
-                                className="bg-black relative overflow-hidden shadow-2xl transition-all duration-300 group"
-                                onMouseMove={handleMouseMove}
-                                style={{
-                                    aspectRatio: state.canvas.ratio.replace(':', '/'),
-                                    height: isTall ? '80vh' : 'auto',
-                                    width: isTall ? 'auto' : '100%',
-                                    maxHeight: '80vh',
-                                    maxWidth: '100%',
-                                    boxShadow: '0 0 50px rgba(0,0,0,0.5)',
-                                    backgroundImage: 'linear-gradient(45deg, #1a1a1a 25%, transparent 25%), linear-gradient(-45deg, #1a1a1a 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #1a1a1a 75%), linear-gradient(-45deg, transparent 75%, #1a1a1a 75%)',
-                                    backgroundSize: '20px 20px',
-                                    backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px'
-                                }}
-                                onClick={() => setState(p => ({ ...p, canvas: { ...p.canvas, activeElementId: null } }))}
+                                onClick={() => setIsLayersPanelExpanded(!isLayersPanelExpanded)}
+                                className="p-3 border-b border-white/10 flex justify-between items-center bg-white/5 cursor-pointer hover:bg-white/10 transition-colors"
                             >
-                                {/* Render Elements */}
-                                {state.canvas.elements.sort((a, b) => a.zIndex - b.zIndex).map(el => (
-                                    <div
-                                        key={el.id}
-                                        onMouseDown={(e) => handleMouseDown(e, el.id)}
-                                        onClick={(e) => { e.stopPropagation(); }} // Prevent deselection
-                                        style={{
-                                            position: 'absolute',
-                                            left: `${el.x}%`,
-                                            top: `${el.y}%`,
-                                            width: `${el.scale * 100}%`, // Scale controls width relative to canvas
-                                            transform: `translate(-50%, -50%) rotate(${el.rotation}deg)`,
-                                            opacity: el.opacity,
-                                            cursor: isDragging && state.canvas.activeElementId === el.id ? 'grabbing' : 'grab',
-                                            zIndex: el.zIndex,
-                                            userSelect: 'none',
-                                            pointerEvents: 'auto'
-                                        }}
-                                    >
-                                        {el.type === 'fade' && el.fadeSettings ? (
-                                            <div
-                                                style={{
-                                                    width: '100%',
-                                                    aspectRatio: state.canvas.ratio.replace(':', '/'),
-                                                    background: `linear-gradient(${el.fadeSettings.direction}, ${hexToRgba(el.fadeSettings.color, el.fadeSettings.startOpacity)}, ${hexToRgba(el.fadeSettings.color, el.fadeSettings.endOpacity)})`
-                                                }}
-                                                className={`pointer-events-none ${state.canvas.activeElementId === el.id ? 'ring-2 ring-[#f43f5e] shadow-xl' : ''}`}
-                                            ></div>
-                                        ) : (
-                                            <img
-                                                src={el.src}
-                                                alt={el.type}
-                                                className={`pointer-events-none w-full h-auto ${state.canvas.activeElementId === el.id ? 'ring-2 ring-[#f43f5e] shadow-xl' : ''}`}
-                                                style={{ display: 'block' }}
-                                            />
-                                        )}
-                                    </div>
-                                ))}
-
-                                {/* Empty Canvas Hint */}
-                                {state.canvas.elements.length === 0 && (
-                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
-                                        <p className="text-white text-sm font-medium">Drag & Drop Assets to Compose</p>
-                                    </div>
-                                )}
+                                <h3 className="text-xs font-bold text-white flex items-center gap-2 mr-4">
+                                    <RectangleStackIcon className="w-4 h-4 text-[#f43f5e]" /> Layers
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-gray-500">{state.canvas.elements.length} items</span>
+                                    {isLayersPanelExpanded ? <ChevronUpIcon className="w-3 h-3 text-gray-400" /> : <ChevronDownIcon className="w-3 h-3 text-gray-400" />}
+                                </div>
                             </div>
-                        );
-                    })()
-                )}
-            </div>
+                            {/* List */}
+                            {isLayersPanelExpanded && (
+                                <div className="overflow-y-auto flex-1 p-2 space-y-1 custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-200">
+                                    {[...state.canvas.elements].sort((a, b) => b.zIndex - a.zIndex).map(el => (
+                                        <div
+                                            key={el.id}
+                                            draggable="true"
+                                            onDragStart={(e) => handleLayerDragStart(e, el.id)}
+                                            onDragOver={handleLayerDragOver}
+                                            onDrop={(e) => handleLayerDrop(e, el.id)}
+                                            onClick={() => setState(prev => ({ ...prev, canvas: { ...prev.canvas, activeElementId: el.id } }))}
+                                            className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors group ${state.canvas.activeElementId === el.id ? 'bg-[#f43f5e]/10 border border-[#f43f5e]/30' : 'hover:bg-white/5 border border-transparent'
+                                                } ${draggingLayerId === el.id ? 'opacity-50 border-dashed border-white/50' : ''}`}
+                                        >
+                                            {/* Controls */}
+                                            <button onClick={(e) => { e.stopPropagation(); toggleLayerVisibility(el.id); }} className="text-gray-400 hover:text-white p-1">
+                                                {el.visible !== false ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeSlashIcon className="w-3.5 h-3.5 text-gray-600" />}
+                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); toggleLayerLock(el.id); }} className="text-gray-400 hover:text-white p-1">
+                                                {el.locked ? <LockClosedIcon className="w-3.5 h-3.5 text-amber-500" /> : <LockOpenIcon className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100" />}
+                                            </button>
+
+                                            {/* Name */}
+                                            <div className="flex-1 min-w-0">
+                                                <span className={`text-[10px] block truncate ${state.canvas.activeElementId === el.id ? 'text-[#f43f5e] font-medium' : 'text-gray-300'} ${el.visible === false ? 'opacity-50' : ''}`}>
+                                                    {el.name || el.type}
+                                                </span>
+                                            </div>
+
+                                            {/* Actions */}
+                                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex flex-col">
+                                                    <button onClick={(e) => { e.stopPropagation(); moveLayer(el.id, 'up'); }} className="hover:text-[#f43f5e]"><ChevronUpIcon className="w-3 h-3" /></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); moveLayer(el.id, 'down'); }} className="hover:text-[#f43f5e]"><ChevronDownIcon className="w-3 h-3" /></button>
+                                                </div>
+                                                <button onClick={(e) => { e.stopPropagation(); handleRemoveLayer(el.id); }} className="p-1.5 hover:bg-red-500/20 rounded text-gray-500 hover:text-red-500">
+                                                    <TrashIcon className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {state.canvas.elements.length === 0 && (
+                                        <div className="p-4 text-center text-[10px] text-gray-600 italic">No active layers</div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+
+                        {/* Composer Canvas */}
+                        {(() => {
+                            const [w, h] = state.canvas.ratio.split(':').map(Number);
+                            const isTall = h > w;
+                            return (
+                                <div
+                                    ref={canvasRef}
+                                    className="bg-black relative overflow-hidden shadow-2xl transition-all duration-300 group"
+                                    onMouseMove={handleMouseMove}
+                                    style={{
+                                        aspectRatio: state.canvas.ratio.replace(':', '/'),
+                                        height: isTall ? '80vh' : 'auto',
+                                        width: isTall ? 'auto' : '100%',
+                                        maxHeight: '80vh',
+                                        maxWidth: '100%',
+                                        boxShadow: '0 0 50px rgba(0,0,0,0.5)',
+                                        backgroundImage: 'linear-gradient(45deg, #1a1a1a 25%, transparent 25%), linear-gradient(-45deg, #1a1a1a 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #1a1a1a 75%), linear-gradient(-45deg, transparent 75%, #1a1a1a 75%)',
+                                        backgroundSize: '20px 20px',
+                                        backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px'
+                                    }}
+                                    onClick={() => setState(p => ({ ...p, canvas: { ...p.canvas, activeElementId: null } }))}
+                                >
+                                    {/* Render Elements */}
+                                    {state.canvas.elements.filter(el => el.visible !== false).sort((a, b) => a.zIndex - b.zIndex).map(el => (
+                                        <div
+                                            key={el.id}
+                                            onMouseDown={(e) => handleMouseDown(e, el.id)}
+                                            onClick={(e) => { e.stopPropagation(); }} // Prevent deselection
+                                            style={{
+                                                position: 'absolute',
+                                                left: `${el.x}%`,
+                                                top: `${el.y}%`,
+                                                width: `${el.scale * 100}%`, // Scale controls width relative to canvas
+                                                transform: `translate(-50%, -50%) rotate(${el.rotation}deg)`,
+                                                opacity: el.opacity,
+                                                cursor: isDragging && state.canvas.activeElementId === el.id ? 'grabbing' : 'grab',
+                                                zIndex: el.zIndex,
+                                                userSelect: 'none',
+                                                pointerEvents: 'auto'
+                                            }}
+                                        >
+                                            {el.type === 'fade' && el.fadeSettings ? (
+                                                <div
+                                                    style={{
+                                                        width: '100%',
+                                                        aspectRatio: state.canvas.ratio.replace(':', '/'),
+                                                        background: `linear-gradient(${el.fadeSettings.direction}, ${hexToRgba(el.fadeSettings.color, el.fadeSettings.startOpacity)}, ${hexToRgba(el.fadeSettings.color, el.fadeSettings.endOpacity)})`
+                                                    }}
+                                                    className={`pointer-events-none ${state.canvas.activeElementId === el.id ? 'ring-2 ring-[#f43f5e] shadow-xl' : ''}`}
+                                                ></div>
+                                            ) : (
+                                                <img
+                                                    src={el.src}
+                                                    alt={el.type}
+                                                    className={`pointer-events-none w-full h-auto ${state.canvas.activeElementId === el.id ? 'ring-2 ring-[#f43f5e] shadow-xl' : ''}`}
+                                                    style={{ display: 'block' }}
+                                                />
+                                            )}
+                                        </div>
+                                    ))}
+
+                                    {/* Empty Canvas Hint */}
+                                    {state.canvas.elements.length === 0 && (
+                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
+                                            <p className="text-white text-sm font-medium">Drag & Drop Assets to Compose</p>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
+                    </>
+                )
+                }
+            </div >
         </div >
     );
 };

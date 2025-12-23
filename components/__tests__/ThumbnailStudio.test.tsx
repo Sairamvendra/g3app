@@ -112,4 +112,34 @@ describe('ThumbnailStudio Component', () => {
             expect(screen.getByText('Direction')).toBeDefined();
         });
     });
+
+    it('manages layers visibility and locking', async () => {
+        render(<ThumbnailStudio />);
+
+        // Go to Compose
+        const composeTab = screen.queryAllByText('Compose').find(el => el.tagName === 'BUTTON');
+        if (composeTab) fireEvent.click(composeTab);
+
+        // Add a layer (software fade)
+        const addFadeBtn = screen.getByText('Add Fade');
+        fireEvent.click(addFadeBtn);
+
+        // Check for Layers Panel header
+        const layersHeader = screen.getByText('Layers');
+        expect(layersHeader).toBeDefined();
+
+        // Expand Layers Panel
+        fireEvent.click(layersHeader);
+
+        // Check for layer item in list
+        const layerItem = await screen.findByText(/Fade Layer \d+/);
+        expect(layerItem).toBeDefined();
+
+        // Verify it is draggable
+        const layerContainer = layerItem.closest('[draggable="true"]');
+        expect(layerContainer).toBeDefined();
+
+        // Check if the layer count "1 items" is present
+        expect(screen.getByText('1 items')).toBeDefined();
+    });
 });

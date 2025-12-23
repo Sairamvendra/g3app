@@ -289,6 +289,9 @@ export interface CanvasElement {
   rotation: number;
   zIndex: number;
   opacity: number;
+  visible?: boolean;
+  locked?: boolean;
+  name?: string;
 }
 
 export interface ThumbnailState {
