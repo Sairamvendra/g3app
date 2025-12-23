@@ -443,7 +443,7 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [], 
                             <div className="flex gap-2">
                                 <button onClick={() => addToCanvas('fade')} className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 group hover:border-[#f43f5e]/50 text-white">
                                     <div className="w-4 h-4 rounded bg-gradient-to-b from-transparent to-white/50 border border-white/20 group-hover:border-[#f43f5e]"></div>
-                                    Add Software Fade
+                                    Add Fade
                                 </button>
                             </div>
                         </section>

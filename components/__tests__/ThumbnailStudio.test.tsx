@@ -101,7 +101,7 @@ describe('ThumbnailStudio Component', () => {
         if (composeTab) fireEvent.click(composeTab);
 
         // Click Add Software Fade
-        const addFadeBtn = screen.getByText('Add Software Fade');
+        const addFadeBtn = screen.getByText('Add Fade');
         fireEvent.click(addFadeBtn);
 
         // Verify "Active Layer" section and Fade Settings appear
