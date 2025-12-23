@@ -26,6 +26,14 @@ const ASPECT_RATIOS = [
     { label: '4:5', desc: 'Portrait Med', icon: RectangleStackIcon, value: '4:5' },
 ];
 
+const hexToRgba = (hex: string, alpha: number) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+
 
 
 interface ThumbnailStudioProps {
@@ -114,8 +122,33 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [], 
 
     // --- COMPOSER STEP ---
     // --- COMPOSER STEP ---
-    const addToCanvas = (type: 'logo' | 'keyart', src: string) => {
-        // Auto-Zoom Logic
+    const addToCanvas = (type: 'logo' | 'keyart' | 'fade', src?: string) => {
+        if (type === 'fade') {
+            const newElement: CanvasElement = {
+                id: Date.now().toString(),
+                type: 'fade',
+                x: 50,
+                y: 50,
+                scale: 1,
+                rotation: 0,
+                zIndex: state.canvas.elements.length + 1,
+                opacity: 1,
+                fadeSettings: {
+                    color: '#000000',
+                    startOpacity: 0,
+                    endOpacity: 1,
+                    direction: 'to bottom'
+                }
+            };
+            setState(prev => ({
+                ...prev,
+                canvas: { ...prev.canvas, elements: [...prev.canvas.elements, newElement], activeElementId: newElement.id }
+            }));
+            return;
+        }
+
+        // Auto-Zoom Logic for Images
+        if (!src) return;
         const img = new Image();
         img.src = src;
         img.onload = () => {
@@ -130,35 +163,20 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [], 
                 const [canvasW, canvasH] = state.canvas.ratio.split(':').map(Number);
                 const imageAspect = img.naturalWidth / img.naturalHeight;
                 const canvasAspect = canvasW / canvasH;
-
-                // Logic: To cover, we need to match the dimension that leaves NO gaps.
-                // Scale is percentage of canvas WIDTH.
-                // scale = ImageWidth / CanvasWidth
-                // If ImageAspect > CanvasAspect (Image is wider relative to height than canvas)
-                // Then we must match HEIGHT.
-                // ImageHeight = CanvasHeight
-                // ImageWidth / ImageAspect = CanvasWidth / CanvasAspect
-                // ImageWidth = CanvasWidth * (ImageAspect / CanvasAspect)
-                // scale (W/CW) = ImageAspect / CanvasAspect
-
-                // If ImageAspect < CanvasAspect (Image is taller/narrower)
-                // Then we must match WIDTH.
-                // ImageWidth = CanvasWidth
-                // scale = 1.
-
                 scale = Math.max(1, imageAspect / canvasAspect);
             }
 
             const newElement: CanvasElement = {
                 id: Date.now().toString(),
-                type,
+                type: 'logo', // Default fallback, overridden below
                 src,
                 x,
                 y,
                 scale,
                 rotation,
                 zIndex: state.canvas.elements.length + 1,
-                opacity: 1
+                opacity: 1,
+                ...(type === 'keyart' ? { type: 'keyart' } : { type: 'logo' }) // Correct type assignment
             };
             setState(prev => ({
                 ...prev,
@@ -271,32 +289,62 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [], 
         const elements = [...state.canvas.elements].sort((a, b) => a.zIndex - b.zIndex);
 
         for (const el of elements) {
-            await new Promise<void>((resolve, reject) => {
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = () => {
-                    ctx.save();
-                    // Position
-                    const x = (el.x / 100) * width;
-                    const y = (el.y / 100) * height;
+            if (el.type === 'fade' && el.fadeSettings) {
+                ctx.save();
+                // Position
+                const x = (el.x / 100) * width;
+                const y = (el.y / 100) * height;
 
-                    ctx.translate(x, y);
-                    ctx.rotate((el.rotation * Math.PI) / 180);
-                    ctx.globalAlpha = el.opacity;
+                ctx.translate(x, y);
+                ctx.rotate((el.rotation * Math.PI) / 180);
+                ctx.globalAlpha = el.opacity;
 
-                    // Scale Logic: percentage of canvas WIDTH
-                    const drawWidth = width * el.scale;
-                    const aspect = img.naturalWidth / img.naturalHeight;
-                    const drawHeight = drawWidth / aspect;
+                const drawWidth = width * el.scale;
+                const drawHeight = height * el.scale;
 
-                    ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+                let x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+                switch (el.fadeSettings.direction) {
+                    case 'to bottom': x0 = 0; y0 = -drawHeight / 2; x1 = 0; y1 = drawHeight / 2; break;
+                    case 'to top': x0 = 0; y0 = drawHeight / 2; x1 = 0; y1 = -drawHeight / 2; break;
+                    case 'to right': x0 = -drawWidth / 2; y0 = 0; x1 = drawWidth / 2; y1 = 0; break;
+                    case 'to left': x0 = drawWidth / 2; y0 = 0; x1 = -drawWidth / 2; y1 = 0; break;
+                }
 
-                    ctx.restore();
-                    resolve();
-                };
-                img.onerror = reject;
-                img.src = el.src;
-            });
+                const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
+                gradient.addColorStop(0, hexToRgba(el.fadeSettings.color, el.fadeSettings.startOpacity));
+                gradient.addColorStop(1, hexToRgba(el.fadeSettings.color, el.fadeSettings.endOpacity));
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(-drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+                ctx.restore();
+            } else {
+                await new Promise<void>((resolve, reject) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => {
+                        ctx.save();
+                        // Position
+                        const x = (el.x / 100) * width;
+                        const y = (el.y / 100) * height;
+
+                        ctx.translate(x, y);
+                        ctx.rotate((el.rotation * Math.PI) / 180);
+                        ctx.globalAlpha = el.opacity;
+
+                        // Scale Logic: percentage of canvas WIDTH
+                        const drawWidth = width * el.scale;
+                        const aspect = img.naturalWidth / img.naturalHeight;
+                        const drawHeight = drawWidth / aspect;
+
+                        ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+
+                        ctx.restore();
+                        resolve();
+                    };
+                    img.onerror = () => resolve(); // Don't block export on single image error
+                    img.src = el.src;
+                });
+            }
         }
 
         const link = document.createElement('a');
@@ -391,6 +439,16 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [], 
                         </section>
 
                         <section>
+                            <label className="text-xs font-bold text-gray-400 block mb-2">Tools</label>
+                            <div className="flex gap-2">
+                                <button onClick={() => addToCanvas('fade')} className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 group hover:border-[#f43f5e]/50 text-white">
+                                    <div className="w-4 h-4 rounded bg-gradient-to-b from-transparent to-white/50 border border-white/20 group-hover:border-[#f43f5e]"></div>
+                                    Add Software Fade
+                                </button>
+                            </div>
+                        </section>
+
+                        <section>
                             <label className="text-xs font-bold text-gray-400 block mb-2">Upload Key-Art</label>
                             <div className="flex items-center justify-center w-full">
                                 <label className="flex flex-col items-center justify-center w-full h-16 border-2 border-dashed border-white/10 rounded-lg cursor-pointer hover:border-[#f43f5e]/50 hover:bg-white/5 transition">
@@ -450,6 +508,52 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [], 
                                     Active Layer
                                     <span className="text-[10px] text-gray-400 font-normal">ID: {state.canvas.activeElementId.slice(-4)}</span>
                                 </h3>
+
+                                {/* Fade Settings */}
+                                {state.canvas.elements.find(el => el.id === state.canvas.activeElementId)?.type === 'fade' && (
+                                    <div className="space-y-3 pb-3 border-b border-white/10 mb-3">
+                                        <div className="flex justify-between items-center"><label className="text-[10px] text-gray-400 font-bold">Fade Settings</label></div>
+
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="text-[10px] text-gray-400 block mb-1">Color</label>
+                                                <input type="color"
+                                                    value={state.canvas.elements.find(el => el.id === state.canvas.activeElementId)?.fadeSettings?.color}
+                                                    onChange={(e) => updateElement(state.canvas.activeElementId!, { fadeSettings: { ...state.canvas.elements.find(el => el.id === state.canvas.activeElementId)!.fadeSettings!, color: e.target.value } })}
+                                                    className="w-full h-8 rounded bg-transparent cursor-pointer" />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] text-gray-400 block mb-1">Direction</label>
+                                                <select
+                                                    value={state.canvas.elements.find(el => el.id === state.canvas.activeElementId)?.fadeSettings?.direction}
+                                                    onChange={(e) => updateElement(state.canvas.activeElementId!, { fadeSettings: { ...state.canvas.elements.find(el => el.id === state.canvas.activeElementId)!.fadeSettings!, direction: e.target.value as any } })}
+                                                    className="w-full h-8 bg-black/50 border border-white/10 rounded text-[10px] text-white px-1">
+                                                    <option value="to bottom">Top ↓ Bottom</option>
+                                                    <option value="to top">Bottom ↑ Top</option>
+                                                    <option value="to right">Left → Right</option>
+                                                    <option value="to left">Right ← Left</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between text-[10px] text-gray-400"><span>Start Opacity</span> <span>{state.canvas.elements.find(el => el.id === state.canvas.activeElementId)?.fadeSettings?.startOpacity}</span></div>
+                                            <input type="range" min="0" max="1" step="0.1"
+                                                value={state.canvas.elements.find(el => el.id === state.canvas.activeElementId)?.fadeSettings?.startOpacity}
+                                                onChange={(e) => updateElement(state.canvas.activeElementId!, { fadeSettings: { ...state.canvas.elements.find(el => el.id === state.canvas.activeElementId)!.fadeSettings!, startOpacity: parseFloat(e.target.value) } })}
+                                                className="w-full accent-[#f43f5e] h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer" />
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between text-[10px] text-gray-400"><span>End Opacity</span> <span>{state.canvas.elements.find(el => el.id === state.canvas.activeElementId)?.fadeSettings?.endOpacity}</span></div>
+                                            <input type="range" min="0" max="1" step="0.1"
+                                                value={state.canvas.elements.find(el => el.id === state.canvas.activeElementId)?.fadeSettings?.endOpacity}
+                                                onChange={(e) => updateElement(state.canvas.activeElementId!, { fadeSettings: { ...state.canvas.elements.find(el => el.id === state.canvas.activeElementId)!.fadeSettings!, endOpacity: parseFloat(e.target.value) } })}
+                                                className="w-full accent-[#f43f5e] h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer" />
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="text-[10px] text-gray-400">Scale</label>
@@ -564,12 +668,23 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [], 
                                             pointerEvents: 'auto'
                                         }}
                                     >
-                                        <img
-                                            src={el.src}
-                                            alt={el.type}
-                                            className={`pointer-events-none w-full h-auto ${state.canvas.activeElementId === el.id ? 'ring-2 ring-[#f43f5e] shadow-xl' : ''}`}
-                                            style={{ display: 'block' }}
-                                        />
+                                        {el.type === 'fade' && el.fadeSettings ? (
+                                            <div
+                                                style={{
+                                                    width: '100%',
+                                                    aspectRatio: state.canvas.ratio.replace(':', '/'),
+                                                    background: `linear-gradient(${el.fadeSettings.direction}, ${hexToRgba(el.fadeSettings.color, el.fadeSettings.startOpacity)}, ${hexToRgba(el.fadeSettings.color, el.fadeSettings.endOpacity)})`
+                                                }}
+                                                className={`pointer-events-none ${state.canvas.activeElementId === el.id ? 'ring-2 ring-[#f43f5e] shadow-xl' : ''}`}
+                                            ></div>
+                                        ) : (
+                                            <img
+                                                src={el.src}
+                                                alt={el.type}
+                                                className={`pointer-events-none w-full h-auto ${state.canvas.activeElementId === el.id ? 'ring-2 ring-[#f43f5e] shadow-xl' : ''}`}
+                                                style={{ display: 'block' }}
+                                            />
+                                        )}
                                     </div>
                                 ))}
 

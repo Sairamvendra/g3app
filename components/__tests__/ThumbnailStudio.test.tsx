@@ -92,4 +92,24 @@ describe('ThumbnailStudio Component', () => {
             expect(screen.getAllByAltText('logo').length).toBeGreaterThan(0);
         });
     });
+
+    it('adds software fade layer and shows settings', async () => {
+        render(<ThumbnailStudio />);
+
+        // Go to Compose
+        const composeTab = screen.queryAllByText('Compose').find(el => el.tagName === 'BUTTON');
+        if (composeTab) fireEvent.click(composeTab);
+
+        // Click Add Software Fade
+        const addFadeBtn = screen.getByText('Add Software Fade');
+        fireEvent.click(addFadeBtn);
+
+        // Verify "Active Layer" section and Fade Settings appear
+        await waitFor(() => {
+            expect(screen.getByText('Active Layer')).toBeDefined();
+            expect(screen.getByText('Fade Settings')).toBeDefined();
+            expect(screen.getByText('Color')).toBeDefined();
+            expect(screen.getByText('Direction')).toBeDefined();
+        });
+    });
 });

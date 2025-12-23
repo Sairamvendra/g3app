@@ -272,9 +272,15 @@ export const MINIMAX_VOICES = [
 
 export interface CanvasElement {
   id: string;
-  type: 'logo' | 'keyart' | 'text' | 'image';
+  type: 'logo' | 'keyart' | 'text' | 'image' | 'fade';
   src?: string;
   text?: string;
+  fadeSettings?: {
+    color: string;
+    startOpacity: number;
+    endOpacity: number;
+    direction: 'to bottom' | 'to top' | 'to left' | 'to right';
+  };
   x: number;
   y: number;
   width?: number; // Initial width for scaling reference
