@@ -7,18 +7,29 @@ import * as replicateService from '../../services/replicateService';
 // Mock dependencies
 vi.mock('../../services/replicateService', () => ({
     generateLogoWithReplicate: vi.fn(),
-    generateKeyArtWithReplicate: vi.fn()
 }));
 
 const mockGenerateLogo = replicateService.generateLogoWithReplicate as any;
-const mockGenerateKeyArt = replicateService.generateKeyArtWithReplicate as any;
 
 describe('ThumbnailStudio Component', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         // Default mocks
         mockGenerateLogo.mockResolvedValue({ result: 'http://test.com/logo.png', baseImage: 'http://test.com/base.png' });
-        mockGenerateKeyArt.mockResolvedValue('http://test.com/keyart.png');
+
+        // Mock global Image to trigger onload immediately
+        global.Image = class {
+            onload: () => void;
+            src: string = '';
+            naturalWidth: number = 100;
+            naturalHeight: number = 100;
+            constructor() {
+                this.onload = () => { };
+                setTimeout(() => {
+                    if (this.onload) this.onload();
+                }, 10);
+            }
+        } as any;
     });
 
     it('renders correctly and defaults to Logo Generator step', () => {
@@ -30,11 +41,6 @@ describe('ThumbnailStudio Component', () => {
 
     it('switches between steps', () => {
         render(<ThumbnailStudio />);
-
-        // Switch to KeyArt
-        const keyArtTab = screen.queryAllByText('Keyart').find(el => el.tagName === 'BUTTON');
-        if (keyArtTab) fireEvent.click(keyArtTab);
-        expect(screen.getByText('Scene Description')).toBeDefined();
 
         // Switch to Compose
         const composeTab = screen.queryAllByText('Compose').find(el => el.tagName === 'BUTTON');
@@ -59,25 +65,7 @@ describe('ThumbnailStudio Component', () => {
         });
     });
 
-    it('handles key-art generation', async () => {
-        render(<ThumbnailStudio />);
 
-        // Go to KeyArt
-        const keyArtTab = screen.queryAllByText('Keyart').find(el => el.tagName === 'BUTTON');
-        if (keyArtTab) fireEvent.click(keyArtTab);
-
-        const teaxtarea = screen.getByPlaceholderText('Describe the main subject and action...');
-        fireEvent.change(teaxtarea, { target: { value: 'Epic battle scene' } });
-
-        const generateBtn = screen.getByText('Generate Key-Art');
-        fireEvent.click(generateBtn);
-
-        expect(mockGenerateKeyArt).toHaveBeenCalledWith('Epic battle scene', expect.any(String), undefined);
-
-        await waitFor(() => {
-            expect(screen.getByAltText('Generated KeyArt')).toBeDefined();
-        });
-    });
 
     it('adds assets to canvas in compose mode', async () => {
         // Setup state with pre-existing assets by mocking useState? 
@@ -100,6 +88,8 @@ describe('ThumbnailStudio Component', () => {
 
         // 4. Verify it's on canvas (check for img with alt="logo")
         // In canvas code: <img ... alt={el.type} ... /> so alt="logo"
-        expect(screen.getAllByAltText('logo').length).toBeGreaterThan(0);
+        await waitFor(() => {
+            expect(screen.getAllByAltText('logo').length).toBeGreaterThan(0);
+        });
     });
 });

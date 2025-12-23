@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CloudArrowUpIcon, RocketLaunchIcon, ComputerDesktopIcon, DevicePhoneMobileIcon, StopIcon, RectangleStackIcon, PhotoIcon, PencilSquareIcon, TrashIcon, ArrowDownTrayIcon, ArrowPathIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { CloudArrowUpIcon, RocketLaunchIcon, ComputerDesktopIcon, DevicePhoneMobileIcon, StopIcon, RectangleStackIcon, PhotoIcon, PencilSquareIcon, TrashIcon, ArrowDownTrayIcon, ArrowPathIcon, XMarkIcon, RectangleGroupIcon } from '@heroicons/react/24/outline';
 import { reframeBannerWithReplicate, editBannerWithReplicate } from '../services/replicateService';
 
 // ... (props interface)
@@ -107,8 +107,9 @@ const SmartBanners: React.FC<SmartBannersProps> = () => {
             <div className="w-80 flex-none bg-[var(--bg-panel)] border-r border-[var(--border-color)] overflow-y-auto p-4 flex flex-col gap-6">
 
                 {/* Header */}
-                <div className="flex flex-col gap-1">
-                    <h2 className="text-2xl font-bold text-[var(--text-primary)]">Smart Banners</h2>
+                <div className="flex items-center gap-3 mb-4 p-2 bg-[var(--bg-card)] rounded-lg border border-[var(--border-color)] shadow-sm">
+                    <RectangleGroupIcon className="w-5 h-5 text-purple-500" />
+                    <h3 className="font-bold text-[var(--text-primary)] text-base">Smart Banners</h3>
                 </div>
 
                 {/* 1. Upload Banner */}

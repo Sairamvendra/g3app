@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ThumbnailState, CanvasElement } from '../types';
 import * as replicateService from '../services/replicateService';
-import { ArrowDownTrayIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, SparklesIcon, TrashIcon, SwatchIcon, ComputerDesktopIcon, DevicePhoneMobileIcon, StopIcon, RectangleStackIcon } from '@heroicons/react/24/outline';
 
 const LOGO_STYLES = [
     'Minimal/Clean',
@@ -11,40 +11,32 @@ const LOGO_STYLES = [
     'Elegant/Luxury'
 ];
 
-const MOODS = [
-    'Action/Thriller',
-    'Drama',
-    'Comedy',
-    'Horror',
-    'Romance',
-    'Sci-Fi/Fantasy',
-    'Documentary'
-];
+
 
 const ASPECT_RATIOS = [
-    { label: '16:9 (Landscape)', value: '16:9' },
-    { label: '9:16 (Portrait)', value: '9:16' },
-    { label: '1:1 (Square)', value: '1:1' },
-    { label: '4:3 (Standard)', value: '4:3' },
-    { label: '3:4 (Portrait)', value: '3:4' },
-    { label: '21:9 (Ultrawide)', value: '21:9' },
-    { label: '3:2 (Classic 35mm)', value: '3:2' },
-    { label: '2:3 (Portrait 35mm)', value: '2:3' },
-    { label: '5:4 (Medium Format)', value: '5:4' },
-    { label: '4:5 (Portrait Medium)', value: '4:5' },
+    { label: '16:9', desc: 'Landscape', icon: ComputerDesktopIcon, value: '16:9' },
+    { label: '9:16', desc: 'Portrait', icon: DevicePhoneMobileIcon, value: '9:16' },
+    { label: '1:1', desc: 'Square', icon: StopIcon, value: '1:1' },
+    { label: '4:3', desc: 'Standard', icon: RectangleStackIcon, value: '4:3' },
+    { label: '3:4', desc: 'Vertical', icon: RectangleStackIcon, value: '3:4' },
+    { label: '21:9', desc: 'Cinema', icon: ComputerDesktopIcon, value: '21:9' },
+    { label: '3:2', desc: 'Classic 35mm', icon: ComputerDesktopIcon, value: '3:2' },
+    { label: '2:3', desc: 'Portrait 35mm', icon: DevicePhoneMobileIcon, value: '2:3' },
+    { label: '5:4', desc: 'Medium Format', icon: RectangleStackIcon, value: '5:4' },
+    { label: '4:5', desc: 'Portrait Med', icon: RectangleStackIcon, value: '4:5' },
 ];
 
 
 
 interface ThumbnailStudioProps {
     externalAssets?: string[];
+    onRemoveExternalAsset?: (url: string) => void;
 }
 
-const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [] }) => {
+const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [], onRemoveExternalAsset }) => {
     const [state, setState] = useState<ThumbnailState>({
         step: 'logo',
         logoSettings: { text: '' },
-        keyArtSettings: { description: '', mood: MOODS[0] },
         generatedAssets: { logos: [], keyArts: [] },
         canvas: { ratio: '16:9', elements: [], activeElementId: null }
     });
@@ -91,48 +83,88 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [] }
         }
     };
 
-    // --- KEY-ART STEP ---
-    const handleKeyArtGenerate = async () => {
-        if (!state.keyArtSettings.description) return;
-        setIsGenerating(true);
-        setError(null);
-        try {
-            const result = await replicateService.generateKeyArtWithReplicate(
-                state.keyArtSettings.description,
-                state.keyArtSettings.mood,
-                state.keyArtSettings.referenceImage
-            );
-            setState(prev => ({
-                ...prev,
-                generatedAssets: {
-                    ...prev.generatedAssets,
-                    keyArts: [...prev.generatedAssets.keyArts, result]
-                }
-            }));
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setIsGenerating(false);
+    // --- KEY-ART / UPLOAD STEP ---
+    const handleKeyArtUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const result = reader.result as string;
+                setState(prev => ({
+                    ...prev,
+                    generatedAssets: {
+                        ...prev.generatedAssets,
+                        keyArts: [...prev.generatedAssets.keyArts, result]
+                    }
+                }));
+            };
+            reader.readAsDataURL(file);
         }
     };
 
-    // --- COMPOSER STEP ---
-    const addToCanvas = (type: 'logo' | 'keyart', src: string) => {
-        const newElement: CanvasElement = {
-            id: Date.now().toString(),
-            type,
-            src,
-            x: 50, // Center percent
-            y: 50,
-            scale: 0.4, // Default to 40% of canvas width
-            rotation: 0,
-            zIndex: state.canvas.elements.length + 1,
-            opacity: 1
-        };
+    const handleRemoveLocalAsset = (type: 'logo' | 'keyart', urlToRemove: string) => {
         setState(prev => ({
             ...prev,
-            canvas: { ...prev.canvas, elements: [...prev.canvas.elements, newElement], activeElementId: newElement.id }
+            generatedAssets: {
+                ...prev.generatedAssets,
+                [type === 'logo' ? 'logos' : 'keyArts']: prev.generatedAssets[type === 'logo' ? 'logos' : 'keyArts'].filter(url => url !== urlToRemove)
+            }
         }));
+    };
+
+    // --- COMPOSER STEP ---
+    // --- COMPOSER STEP ---
+    const addToCanvas = (type: 'logo' | 'keyart', src: string) => {
+        // Auto-Zoom Logic
+        const img = new Image();
+        img.src = src;
+        img.onload = () => {
+            // Calculate defaults
+            let scale = 0.4; // Default for logos
+            let x = 50;
+            let y = 50;
+            let rotation = 0;
+
+            if (type === 'keyart') {
+                // Auto-Zoom to Cover
+                const [canvasW, canvasH] = state.canvas.ratio.split(':').map(Number);
+                const imageAspect = img.naturalWidth / img.naturalHeight;
+                const canvasAspect = canvasW / canvasH;
+
+                // Logic: To cover, we need to match the dimension that leaves NO gaps.
+                // Scale is percentage of canvas WIDTH.
+                // scale = ImageWidth / CanvasWidth
+                // If ImageAspect > CanvasAspect (Image is wider relative to height than canvas)
+                // Then we must match HEIGHT.
+                // ImageHeight = CanvasHeight
+                // ImageWidth / ImageAspect = CanvasWidth / CanvasAspect
+                // ImageWidth = CanvasWidth * (ImageAspect / CanvasAspect)
+                // scale (W/CW) = ImageAspect / CanvasAspect
+
+                // If ImageAspect < CanvasAspect (Image is taller/narrower)
+                // Then we must match WIDTH.
+                // ImageWidth = CanvasWidth
+                // scale = 1.
+
+                scale = Math.max(1, imageAspect / canvasAspect);
+            }
+
+            const newElement: CanvasElement = {
+                id: Date.now().toString(),
+                type,
+                src,
+                x,
+                y,
+                scale,
+                rotation,
+                zIndex: state.canvas.elements.length + 1,
+                opacity: 1
+            };
+            setState(prev => ({
+                ...prev,
+                canvas: { ...prev.canvas, elements: [...prev.canvas.elements, newElement], activeElementId: newElement.id }
+            }));
+        };
     };
 
     const updateElement = (id: string, updates: Partial<CanvasElement>) => {
@@ -278,17 +310,18 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [] }
         <div className="flex h-screen bg-[#0a0a0a] text-white" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
             {/* Sidebar Navigation */}
             <div className="w-80 border-r border-white/10 p-4 flex flex-col gap-6 overflow-y-auto z-20 bg-[#0a0a0a]">
-                <h1 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                    Thumbnail Studio
-                </h1>
+                <div className="flex items-center gap-3 p-2 bg-white/5 rounded-lg border border-white/10 shadow-sm">
+                    <SwatchIcon className="w-5 h-5 text-rose-500" />
+                    <h3 className="font-bold text-white text-base">Thumbnail Studio</h3>
+                </div>
 
                 {/* Steps Tabs */}
                 <div className="flex p-1 bg-white/5 rounded-xl">
-                    {['logo', 'keyart', 'compose'].map((step) => (
+                    {['logo', 'compose'].map((step) => (
                         <button
                             key={step}
                             onClick={() => setState(prev => ({ ...prev, step: step as any }))}
-                            className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${state.step === step ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                            className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${state.step === step ? 'bg-[#f43f5e] text-white shadow-lg' : 'text-gray-400 hover:text-white'
                                 }`}
                         >
                             {step.charAt(0).toUpperCase() + step.slice(1)}
@@ -303,20 +336,27 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [] }
                             <textarea
                                 value={state.logoSettings.text}
                                 onChange={(e) => setState(p => ({ ...p, logoSettings: { ...p.logoSettings, text: e.target.value } }))}
-                                className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-sm focus:border-indigo-500 outline-none h-24 resize-none"
+                                className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-sm focus:border-[#f43f5e] outline-none h-24 resize-none"
                                 placeholder="Describe the title logo (e.g. A futuristic, metallic text logo saying 'CyberNinja' with neon accents)"
                             />
                         </section>
 
                         <section>
                             <label className="text-xs font-bold text-gray-400 block mb-2">Reference Image (Required for matching style)</label>
-                            <input type="file" accept="image/*" onChange={handleLogoUpload} className="text-xs text-gray-400" />
+                            <div className="flex items-center justify-center w-full">
+                                <label className="flex flex-col items-center justify-center w-full h-16 border-2 border-dashed border-white/10 rounded-lg cursor-pointer hover:border-[#f43f5e]/50 hover:bg-white/5 transition">
+                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                        <p className="text-[10px] text-gray-400"><span className="font-bold">Click to upload</span> Reference Image</p>
+                                    </div>
+                                    <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
+                                </label>
+                            </div>
                         </section>
 
                         <button
                             onClick={handleLogoGenerate}
                             disabled={isGenerating || !state.logoSettings.text}
-                            className={`w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 ${isGenerating ? 'bg-gray-700 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:scale-[1.02]'
+                            className={`w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 ${isGenerating ? 'bg-gray-700 cursor-not-allowed' : 'bg-gradient-to-r from-[#f43f5e] to-rose-600 hover:scale-[1.02]'
                                 }`}
                         >
                             {isGenerating ? 'Generating...' : 'Generate Logo'}
@@ -324,37 +364,7 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [] }
                     </div>
                 )}
 
-                {state.step === 'keyart' && (
-                    <div className="space-y-4">
-                        <section>
-                            <label className="text-xs font-bold text-gray-400 block mb-2">Scene Description</label>
-                            <textarea
-                                value={state.keyArtSettings.description}
-                                onChange={(e) => setState(p => ({ ...p, keyArtSettings: { ...p.keyArtSettings, description: e.target.value } }))}
-                                className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-sm focus:border-indigo-500 outline-none h-24 resize-none"
-                                placeholder="Describe the main subject and action..."
-                            />
-                        </section>
-                        <section>
-                            <label className="text-xs font-bold text-gray-400 block mb-2">Mood / Genre</label>
-                            <select
-                                value={state.keyArtSettings.mood}
-                                onChange={(e) => setState(p => ({ ...p, keyArtSettings: { ...p.keyArtSettings, mood: e.target.value } }))}
-                                className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-sm focus:border-indigo-500 outline-none"
-                            >
-                                {MOODS.map(m => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                        </section>
-                        <button
-                            onClick={handleKeyArtGenerate}
-                            disabled={isGenerating || !state.keyArtSettings.description}
-                            className={`w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 ${isGenerating ? 'bg-gray-700 cursor-not-allowed' : 'bg-gradient-to-r from-pink-500 to-rose-600 hover:scale-[1.02]'
-                                }`}
-                        >
-                            {isGenerating ? 'Generating...' : 'Generate Key-Art'}
-                        </button>
-                    </div>
-                )}
+
 
                 {state.step === 'compose' && (
                     <div className="space-y-4">
@@ -365,11 +375,30 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [] }
                                     <button
                                         key={ratio.value}
                                         onClick={() => setState(p => ({ ...p, canvas: { ...p.canvas, ratio: ratio.value } }))}
-                                        className={`p-2 text-[10px] rounded border ${state.canvas.ratio === ratio.value ? 'border-indigo-500 bg-indigo-500/20' : 'border-white/10'}`}
+                                        className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-xl border transition-all duration-200 ${state.canvas.ratio === ratio.value
+                                            ? 'bg-[#f43f5e]/10 border-[#f43f5e]/50 text-[#f43f5e]'
+                                            : 'bg-white/5 border-white/10 text-gray-400 hover:border-gray-400 hover:text-white'
+                                            }`}
                                     >
-                                        {ratio.label}
+                                        <ratio.icon className="w-5 h-5" />
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-[10px] font-bold">{ratio.label}</span>
+                                            <span className="text-[9px] opacity-70">{ratio.desc}</span>
+                                        </div>
                                     </button>
                                 ))}
+                            </div>
+                        </section>
+
+                        <section>
+                            <label className="text-xs font-bold text-gray-400 block mb-2">Upload Key-Art</label>
+                            <div className="flex items-center justify-center w-full">
+                                <label className="flex flex-col items-center justify-center w-full h-16 border-2 border-dashed border-white/10 rounded-lg cursor-pointer hover:border-[#f43f5e]/50 hover:bg-white/5 transition">
+                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                        <p className="text-[10px] text-gray-400"><span className="font-bold">Click to upload</span> Key-Art</p>
+                                    </div>
+                                    <input type="file" className="hidden" accept="image/*" onChange={handleKeyArtUpload} />
+                                </label>
                             </div>
                         </section>
 
@@ -379,17 +408,37 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [] }
                                 {/* External Assets from Visual Studio */}
                                 {externalAssets.length > 0 && externalAssets.map((url, i) => (
                                     <div key={`ext-${i}`} className="relative group">
-                                        <span className="absolute top-1 left-1 z-10 bg-pink-500 text-white text-[8px] px-1 rounded-sm uppercase font-bold tracking-wider">Imported</span>
-                                        <img src={url} alt="Imported Asset" onClick={() => addToCanvas('keyart', url)} className="rounded border border-white/10 cursor-pointer hover:border-pink-500 w-full h-20 object-cover" />
+                                        <span className="absolute top-1 left-1 z-10 bg-[#f43f5e] text-white text-[8px] px-1 rounded-sm uppercase font-bold tracking-wider">Imported</span>
+                                        <img src={url} alt="Imported Asset" onClick={() => addToCanvas('keyart', url)} className="rounded border border-white/10 cursor-pointer hover:border-[#f43f5e] w-full h-20 object-cover" />
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onRemoveExternalAsset?.(url); }}
+                                            className="absolute top-1 right-1 bg-black/50 p-1 rounded hover:bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition"
+                                        >
+                                            <TrashIcon className="w-3 h-3" />
+                                        </button>
                                     </div>
                                 ))}
 
                                 {state.generatedAssets.keyArts.map((url, i) => (
-                                    <img key={`ka-${i}`} src={url} alt="KA" onClick={() => addToCanvas('keyart', url)} className="rounded border border-white/10 cursor-pointer hover:border-pink-500 w-full h-20 object-cover" />
+                                    <div key={`ka-${i}`} className="relative group">
+                                        <img src={url} alt="KA" onClick={() => addToCanvas('keyart', url)} className="rounded border border-white/10 cursor-pointer hover:border-[#f43f5e] w-full h-20 object-cover" />
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleRemoveLocalAsset('keyart', url); }}
+                                            className="absolute top-1 right-1 bg-black/50 p-1 rounded hover:bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition"
+                                        >
+                                            <TrashIcon className="w-3 h-3" />
+                                        </button>
+                                    </div>
                                 ))}
                                 {state.generatedAssets.logos.map((url, i) => (
-                                    <div key={`lg-${i}`} className="bg-[url('/checker.png')] rounded overflow-hidden h-20 border border-white/10 hover:border-indigo-500 cursor-pointer">
+                                    <div key={`lg-${i}`} className="relative group bg-[url('/checker.png')] rounded overflow-hidden h-20 border border-white/10 hover:border-[#f43f5e] cursor-pointer">
                                         <img src={url} alt="LG" onClick={() => addToCanvas('logo', url)} className="w-full h-full object-contain" />
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleRemoveLocalAsset('logo', url); }}
+                                            className="absolute top-1 right-1 bg-black/50 p-1 rounded hover:bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition"
+                                        >
+                                            <TrashIcon className="w-3 h-3" />
+                                        </button>
                                     </div>
                                 ))}
                             </div>
@@ -408,7 +457,7 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [] }
                                             type="range" min="0.1" max="3" step="0.1"
                                             value={state.canvas.elements.find(el => el.id === state.canvas.activeElementId)?.scale || 1}
                                             onChange={(e) => updateElement(state.canvas.activeElementId!, { scale: parseFloat(e.target.value) })}
-                                            className="w-full accent-indigo-500 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                                            className="w-full accent-[#f43f5e] h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
                                         />
                                     </div>
                                     <div>
@@ -417,7 +466,7 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [] }
                                             type="range" min="-180" max="180"
                                             value={state.canvas.elements.find(el => el.id === state.canvas.activeElementId)?.rotation || 0}
                                             onChange={(e) => updateElement(state.canvas.activeElementId!, { rotation: parseInt(e.target.value) })}
-                                            className="w-full accent-indigo-500 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                                            className="w-full accent-[#f43f5e] h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
                                         />
                                     </div>
                                     <div>
@@ -426,7 +475,7 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [] }
                                             type="range" min="0" max="1" step="0.1"
                                             value={state.canvas.elements.find(el => el.id === state.canvas.activeElementId)?.opacity || 1}
                                             onChange={(e) => updateElement(state.canvas.activeElementId!, { opacity: parseFloat(e.target.value) })}
-                                            className="w-full accent-indigo-500 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                                            className="w-full accent-[#f43f5e] h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
                                         />
                                     </div>
                                     <div className="flex items-end">
@@ -461,17 +510,12 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [] }
                     // Preview Grid for Generations
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-6 w-full max-w-4xl max-h-full overflow-y-auto">
                         {state.step === 'logo' && state.generatedAssets.logos.map((url, i) => (
-                            <div key={i} className="aspect-[3/2] bg-[url('/checker.png')] bg-repeat rounded-xl overflow-hidden border border-white/10 relative group hover:border-indigo-500 transition">
+                            <div key={i} className="aspect-[3/2] bg-[url('/checker.png')] bg-repeat rounded-xl overflow-hidden border border-white/10 relative group hover:border-[#f43f5e] transition">
                                 <img src={url} alt="Generated Logo" className="w-full h-full object-contain" />
                             </div>
                         ))}
-                        {state.step === 'keyart' && state.generatedAssets.keyArts.map((url, i) => (
-                            <div key={i} className="aspect-video bg-black rounded-xl overflow-hidden border border-white/10 group relative hover:border-pink-500 transition">
-                                <img src={url} alt="Generated KeyArt" className="w-full h-full object-cover" />
-                            </div>
-                        ))}
                         {/* Empty State */}
-                        {((state.step === 'logo' && state.generatedAssets.logos.length === 0) || (state.step === 'keyart' && state.generatedAssets.keyArts.length === 0)) && (
+                        {state.step === 'logo' && state.generatedAssets.logos.length === 0 && (
                             <div className="col-span-full flex flex-col items-center justify-center text-gray-500 py-20">
                                 <SparklesIcon className="w-12 h-12 mb-4 opacity-20" />
                                 <p>No assets generated yet.</p>
@@ -523,7 +567,7 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [] }
                                         <img
                                             src={el.src}
                                             alt={el.type}
-                                            className={`pointer-events-none w-full h-auto ${state.canvas.activeElementId === el.id ? 'ring-2 ring-indigo-500 shadow-xl' : ''}`}
+                                            className={`pointer-events-none w-full h-auto ${state.canvas.activeElementId === el.id ? 'ring-2 ring-[#f43f5e] shadow-xl' : ''}`}
                                             style={{ display: 'block' }}
                                         />
                                     </div>
@@ -540,7 +584,7 @@ const ThumbnailStudio: React.FC<ThumbnailStudioProps> = ({ externalAssets = [] }
                     })()
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 

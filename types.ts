@@ -286,19 +286,14 @@ export interface CanvasElement {
 }
 
 export interface ThumbnailState {
-  step: 'logo' | 'keyart' | 'compose';
+  step: 'logo' | 'compose';
   logoSettings: {
     text: string;
     referenceImage?: string; // Base64
   };
-  keyArtSettings: {
-    description: string;
-    mood: string;
-    referenceImage?: string; // Base64
-  };
   generatedAssets: {
     logos: string[];
-    keyArts: string[];
+    keyArts: string[]; // Kept for uploads/imports
   };
   canvas: {
     ratio: string;

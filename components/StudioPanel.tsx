@@ -554,6 +554,10 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
         setActiveSidebar('thumbnail-studio');
     };
 
+    const handleRemoveImportedAsset = (urlToRemove: string) => {
+        setImportedAssets(prev => prev.filter(url => url !== urlToRemove));
+    };
+
     const currentImage = generatedImages.length > 0 ? generatedImages[selectedImageIndex] : null;
     const hasCustomCamera = settings.cameraControls.rotation !== 0 || settings.cameraControls.moveForward !== 0 || settings.cameraControls.verticalAngle !== 0 || settings.cameraControls.isWideAngle;
     let generateButtonText = "Generate";
@@ -1101,7 +1105,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
 
             {/* Thumbnail Studio Module */}
             <div className={`flex-1 min-w-0 ${activeSidebar === 'thumbnail-studio' ? 'block' : 'hidden'}`}>
-                <ThumbnailStudio externalAssets={importedAssets} />
+                <ThumbnailStudio externalAssets={importedAssets} onRemoveExternalAsset={handleRemoveImportedAsset} />
             </div>
 
             {/* Main Visual Studio Module */}
@@ -1243,7 +1247,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                 <div className="p-3 bg-[var(--bg-main)] border-t border-[var(--border-color)] space-y-3 z-20 flex-none">
                     <div className="grid grid-cols-1 gap-3 relative z-10">
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider flex justify-between"><span>Final Prompt</span>{characters.length > 0 && <span className="text-[10px] text-pink-400">Tip: Use @name to insert character</span>}</label>
+                            <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider flex justify-between"><span>Final Prompt</span>{characters.length > 0 && <span className="text-[10px] text-gray-500">Tip: Use @name to insert character</span>}</label>
                             <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} disabled={activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0} className={`w-full bg-[var(--bg-input)] text-[var(--text-primary)] rounded-xl p-2 border border-[var(--border-color)] focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none h-24 resize-none font-light leading-relaxed ${activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`} placeholder={activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0 ? "Using prompts detected from Story Flow..." : "Waiting for prompt from Architect... (Type @name to use characters)"} />
                         </div>
                     </div>
