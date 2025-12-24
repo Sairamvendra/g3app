@@ -145,6 +145,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
     const [newCharacterName, setNewCharacterName] = useState('');
     const [newCharacterPersona, setNewCharacterPersona] = useState('');
     const [isGeneratingPersona, setIsGeneratingPersona] = useState(false);
+    const [isCameraShotExpanded, setIsCameraShotExpanded] = useState(false);
 
     useEffect(() => {
         localStorage.setItem('gemini_studio_characters', JSON.stringify(characters));
@@ -381,7 +382,6 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                 }
             } else {
                 if (!prompt) { setIsGenerating(false); return; }
-                if (settings.cameraAngles.length === 0) { setError("Please select at least one camera angle."); setIsGenerating(false); return; }
 
                 let anglesToGenerate: string[] = [];
                 const hasCustomCamera = settings.cameraControls.rotation !== 0 || settings.cameraControls.moveForward !== 0 || settings.cameraControls.verticalAngle !== 0 || settings.cameraControls.isWideAngle;
@@ -1530,14 +1530,31 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                                     <div className="flex justify-between items-center mb-2"><span className="text-xs text-[var(--text-secondary)] font-medium flex items-center gap-1.5"><PaintBrushIcon className="w-3 h-3" />Digital Intermediate (DI)</span></div>
                                     <div className="space-y-2"><select value={settings.diWorkflow} onChange={(e) => setSettings({ ...settings, diWorkflow: e.target.value })} className="w-full bg-[var(--bg-card)] text-[var(--text-primary)] p-2 rounded-lg border border-[var(--border-color)] outline-none focus:border-green-500 text-xs">{DI_WORKFLOW_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select><input type="text" value={settings.customColorGrading} onChange={(e) => setSettings({ ...settings, customColorGrading: e.target.value })} placeholder="Custom LUT / Color Hex / Preset..." className="w-full bg-[var(--bg-card)] text-[var(--text-primary)] p-2 rounded-lg border border-[var(--border-color)] outline-none focus:border-green-500 text-xs placeholder-[var(--text-muted)]" /></div>
                                 </div>
-                                <div className={`bg-[var(--bg-input)] rounded-xl p-3 border border-[var(--border-color)] ${hasCustomCamera ? 'opacity-40 pointer-events-none' : ''}`}>
-                                    <div className="flex justify-between items-center mb-2"><span className="text-xs text-[var(--text-secondary)] font-medium">Camera Shot / Angle (Multi-Select)</span>{!isMergeMode && isPresetComboMode && activeSidebar === 'none' && !hasCustomCamera && (<span className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full animate-pulse">Preset Combo (6 Shots)</span>)}</div>
-                                    <div className="flex flex-wrap gap-2 mb-3">{ANGLE_OPTIONS.map(angle => { const isSelected = settings.cameraAngles.includes(angle); return (<button key={angle} onClick={() => toggleAngle(angle)} className={`px-3 py-1.5 rounded-full text-[10px] md:text-xs font-medium border transition-all duration-200 flex items-center gap-1.5 ${isSelected ? 'bg-green-500/10 text-green-400 border-green-500/50 shadow-sm shadow-green-500/10' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-[var(--border-hover)] hover:bg-[var(--bg-hover)]'}`}>{isSelected && <CheckCircleIcon className="w-3 h-3" />}{angle}</button>); })}</div>
-                                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--border-color)]">
-                                        <button onClick={() => togglePreset(FRAMING_OPTIONS)} className={`p-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-2 transition ${isFramingAllSelected ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/50 shadow shadow-indigo-500/10' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:bg-[var(--bg-hover)] hover:border-[var(--border-hover)]'}`}><VideoCameraIcon className="w-4 h-4" /> By Distance/Framing</button>
-                                        <button onClick={() => togglePreset(CAMERA_ANGLE_OPTIONS)} className={`p-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-2 transition ${isAngleAllSelected ? 'bg-purple-500/20 text-purple-300 border-purple-500/50 shadow shadow-purple-500/10' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:bg-[var(--bg-hover)] hover:border-[var(--border-hover)]'}`}><EyeIcon className="w-4 h-4" /> By Angle</button>
+                                <div className={`bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)] overflow-hidden ${hasCustomCamera ? 'opacity-40 pointer-events-none' : ''}`}>
+                                    <div
+                                        onClick={() => setIsCameraShotExpanded(!isCameraShotExpanded)}
+                                        className="flex justify-between items-center p-3 cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-[var(--text-secondary)] font-medium">Camera Shot / Angle (Multi-Select)</span>
+                                            {settings.cameraAngles.length > 0 && <span className="text-[10px] bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded-md">{settings.cameraAngles.length}</span>}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {!isMergeMode && isPresetComboMode && activeSidebar === 'none' && !hasCustomCamera && (<span className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full animate-pulse">Preset Combo (6 Shots)</span>)}
+                                            {isCameraShotExpanded ? <ChevronUpIcon className="w-3 h-3 text-[var(--text-muted)]" /> : <ChevronDownIcon className="w-3 h-3 text-[var(--text-muted)]" />}
+                                        </div>
                                     </div>
-                                    <button onClick={() => setIsMergeMode(!isMergeMode)} disabled={activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0} className={`w-full mt-2 p-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-2 transition ${isMergeMode ? 'bg-teal-600 text-white border-teal-500 shadow-lg shadow-teal-500/20' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:bg-[var(--bg-hover)] hover:border-[var(--border-hover)]'} ${activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}><LinkIcon className="w-4 h-4" />{isMergeMode ? 'Combined Mode Active (Single Image)' : 'Activate Combined Mode'}</button>
+
+                                    {isCameraShotExpanded && (
+                                        <div className="p-3 pt-0 border-t border-[var(--border-color)] mt-2">
+                                            <div className="flex flex-wrap gap-2 mb-3 mt-3">{ANGLE_OPTIONS.map(angle => { const isSelected = settings.cameraAngles.includes(angle); return (<button key={angle} onClick={() => toggleAngle(angle)} className={`px-3 py-1.5 rounded-full text-[10px] md:text-xs font-medium border transition-all duration-200 flex items-center gap-1.5 ${isSelected ? 'bg-green-500/10 text-green-400 border-green-500/50 shadow-sm shadow-green-500/10' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:border-[var(--border-hover)] hover:bg-[var(--bg-hover)]'}`}>{isSelected && <CheckCircleIcon className="w-3 h-3" />}{angle}</button>); })}</div>
+                                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--border-color)]">
+                                                <button onClick={() => togglePreset(FRAMING_OPTIONS)} className={`p-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-2 transition ${isFramingAllSelected ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/50 shadow shadow-indigo-500/10' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:bg-[var(--bg-hover)] hover:border-[var(--border-hover)]'}`}><VideoCameraIcon className="w-4 h-4" /> By Distance/Framing</button>
+                                                <button onClick={() => togglePreset(CAMERA_ANGLE_OPTIONS)} className={`p-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-2 transition ${isAngleAllSelected ? 'bg-purple-500/20 text-purple-300 border-purple-500/50 shadow shadow-purple-500/10' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:bg-[var(--bg-hover)] hover:border-[var(--border-hover)]'}`}><EyeIcon className="w-4 h-4" /> By Angle</button>
+                                            </div>
+                                            <button onClick={() => setIsMergeMode(!isMergeMode)} disabled={activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0} className={`w-full mt-2 p-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-2 transition ${isMergeMode ? 'bg-teal-600 text-white border-teal-500 shadow-lg shadow-teal-500/20' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:bg-[var(--bg-hover)] hover:border-[var(--border-hover)]'} ${activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}><LinkIcon className="w-4 h-4" />{isMergeMode ? 'Combined Mode Active (Single Image)' : 'Activate Combined Mode'}</button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
