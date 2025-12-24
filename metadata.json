@@ -1,5 +1,0 @@
-{
-  "name": "Testing Vision Studio-Unix-pro-3.1",
-  "description": "A dual-segment professional image generation tool. Refine structured prompts with a Thinking AI Assistant on one side, and generate high-fidelity 4K images with specific camera controls on the other using Gemini 3 Pro.",
-  "requestFramePermissions": []
-}

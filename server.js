@@ -11,16 +11,28 @@ const app = express();
 const PORT = process.env.PORT || 3002;
 
 // ===== LOGGING SYSTEM =====
+// Only enable file logging if NOT on Vercel (read-only FS)
+const isVercel = process.env.VERCEL === '1';
 const logsDir = path.join(process.cwd(), 'logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
+
+if (!isVercel && !fs.existsSync(logsDir)) {
+  try {
+    fs.mkdirSync(logsDir, { recursive: true });
+  } catch (e) {
+    console.error('Failed to create logs directory:', e);
+  }
 }
 
 const logToFile = (type, data) => {
-  const timestamp = new Date().toISOString();
-  const logFile = path.join(logsDir, `session-${new Date().toISOString().split('T')[0]}.log`);
-  const logEntry = `[${timestamp}] [${type}] ${JSON.stringify(data, null, 2)}\n${'='.repeat(80)}\n`;
-  fs.appendFileSync(logFile, logEntry);
+  if (isVercel) return; // Skip file logging on Vercel
+  try {
+    const timestamp = new Date().toISOString();
+    const logFile = path.join(logsDir, `session-${new Date().toISOString().split('T')[0]}.log`);
+    const logEntry = `[${timestamp}] [${type}] ${JSON.stringify(data, null, 2)}\n${'='.repeat(80)}\n`;
+    fs.appendFileSync(logFile, logEntry);
+  } catch (e) {
+    console.error('Failed to write to log file:', e);
+  }
 };
 
 const logger = {
@@ -596,8 +608,12 @@ function extractUrlFromOutput(output) {
   return url;
 }
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 StudioProMax API Server running on http://localhost:${PORT}`);
-  console.log(`📡 Health check: http://localhost:${PORT}/api/health`);
-});
+// Start server only if run directly (not imported as a module)
+if (process.env.NODE_ENV !== 'production' && process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`🚀 StudioProMax API Server running on http://localhost:${PORT}`);
+    console.log(`📡 Health check: http://localhost:${PORT}/api/health`);
+  });
+}
+
+export default app;

@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
     test: {
       globals: true,
       environment: 'jsdom',
-      setupFiles: './src/test/setup.ts',
+
     },
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
