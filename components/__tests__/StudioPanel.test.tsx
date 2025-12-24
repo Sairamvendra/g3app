@@ -68,4 +68,20 @@ describe('StudioPanel', () => {
         fireEvent.change(textarea, { target: { value: 'New studio prompt' } });
         expect(textarea).toHaveValue('New studio prompt');
     });
+    it('generates with default angle when no specific angle selected', async () => {
+        const { generateImageWithReplicate } = await import('../../services/replicateService');
+        render(<StudioPanel initialPrompt="" />);
+
+        // Enter a prompt
+        const textarea = screen.getByPlaceholderText(/Waiting for prompt from Architect/i);
+        fireEvent.change(textarea, { target: { value: 'Test generation' } });
+
+        // Click Generate button (assuming generic Generate button text since count is defaults)
+        // Click Generate button - use exact text match to avoid ambiguity with "Generate Video"
+        const generateBtn = screen.getByRole('button', { name: 'Generate (1)' });
+        fireEvent.click(generateBtn);
+
+        // Verify that replicate service was called
+        expect(generateImageWithReplicate).toHaveBeenCalled();
+    });
 });

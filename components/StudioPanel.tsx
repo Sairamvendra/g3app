@@ -389,7 +389,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                 if (hasCustomCamera) anglesToGenerate = ['Custom Camera Settings'];
                 else if (isMergeMode) anglesToGenerate = [settings.cameraAngles.join(' + ')];
                 else if (isPresetComboMode) anglesToGenerate = ['Medium Shot (MS) + OTS', 'Close-Up (CU) + Eye Level', 'Wide Shot (WS) + Eye Level', 'Medium Shot (MS) + Eye Level', 'Close-Up (CU) + Low Angle', 'Wide Shot (WS) + High Angle'];
-                else anglesToGenerate = settings.cameraAngles;
+                else anglesToGenerate = settings.cameraAngles.length > 0 ? settings.cameraAngles : ['Cinematic Composition'];
 
                 const promises = anglesToGenerate.map(angle => performGeneration(prompt, angle, settings));
                 const outcomes = await Promise.allSettled(promises);
