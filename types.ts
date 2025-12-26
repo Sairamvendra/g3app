@@ -112,7 +112,7 @@ export interface Character {
   imageBase64: string;
 }
 
-export type SidebarMode = 'none' | 'story' | 'characters' | 'relight' | 'settings' | 'video' | 'smart-banners' | 'thumbnail-studio';
+export type SidebarMode = 'none' | 'story' | 'characters' | 'relight' | 'settings' | 'video' | 'smart-banners' | 'thumbnail-studio' | 'influencer';
 
 export const DEFAULT_CAMERA_SETTINGS: CameraSettings = {
   rotation: 0,
@@ -269,6 +269,99 @@ export const MINIMAX_VOICES = [
   { id: 'voice-01', name: 'Voice 1' },
   { id: 'voice-02', name: 'Voice 2' },
 ];
+
+// ========== INFLUENCER CONTENT MODULE TYPES ==========
+
+// Voice options for influencer TTS (from MiniMax Speech 2.6 HD)
+export const INFLUENCER_VOICES = [
+  { id: 'English_expressive_narrator', name: 'Expressive Narrator', emotion: 'calm', useCase: 'Professional narration, tutorials' },
+  { id: 'English_Upbeat_Woman', name: 'Upbeat Woman', emotion: 'happy', useCase: 'Energetic content, product reviews' },
+  { id: 'English_CaptivatingStoryteller', name: 'Captivating Storyteller', emotion: 'auto', useCase: 'Story-driven content, vlogs' },
+  { id: 'English_magnetic_voiced_man', name: 'Magnetic-Voiced Man', emotion: 'neutral', useCase: 'Authoritative content, tech reviews' },
+];
+
+export const INFLUENCER_EMOTIONS = [
+  'auto', 'happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised', 'calm', 'fluent', 'neutral'
+] as const;
+
+export type InfluencerEmotion = typeof INFLUENCER_EMOTIONS[number];
+
+// Avatar dimension options (for Nano Banana Pro)
+export const AVATAR_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'] as const;
+export type AvatarAspectRatio = typeof AVATAR_ASPECT_RATIOS[number];
+
+export const AVATAR_RESOLUTIONS = ['1K', '2K', '4K'] as const;
+export type AvatarResolution = typeof AVATAR_RESOLUTIONS[number];
+
+export interface AvatarSettings {
+  prompt: string;
+  aspectRatio: AvatarAspectRatio;
+  resolution: AvatarResolution;
+}
+
+export interface BRollMarker {
+  id: string;
+  textStart: number;  // Character index in script
+  textEnd: number;    // Character index in script
+  prompt: string;     // AI-generated prompt for B-roll video
+  videoUrl?: string;  // Generated video URL
+  status: 'pending' | 'generating' | 'complete' | 'error';
+}
+
+export interface InfluencerProject {
+  id: string;
+  name: string;
+  rawScript: string;
+  refinedScript: string;
+  brollMarkers: BRollMarker[];
+  voiceId: string;
+  emotion: InfluencerEmotion;
+  audioUrl?: string;
+  audioDurationMs?: number;
+  status: 'draft' | 'refining' | 'generating-assets' | 'complete';
+  createdAt: number;
+}
+
+export interface InfluencerState {
+  currentStep: 1 | 2 | 3 | 4 | 5;
+  rawScript: string;
+  refinedScript: string;
+  brollMarkers: BRollMarker[];
+  selectedVoiceId: string;
+  selectedEmotion: InfluencerEmotion;
+  generatedAudio: { url: string; durationMs: number } | null;
+  // Avatar generation (Step 3)
+  avatarPrompts: string[]; // AI-derived prompts for avatar generation
+  generatedAvatarUrls: string[]; // Array of 3 generated avatars
+  selectedAvatarIndex: number; // Which avatar is selected (0, 1, or 2)
+  customAvatarPrompt: string; // For manual avatar creation
+  // Talking head video (Step 4)
+  talkingHeadVideoUrl: string | null;
+  // Final stitched video (Step 5)
+  finalStitchedVideoUrl: string | null;
+  isProcessing: boolean;
+  processingMessage: string;
+  error: string | null;
+}
+
+export const DEFAULT_INFLUENCER_STATE: InfluencerState = {
+  currentStep: 1,
+  rawScript: '',
+  refinedScript: '',
+  brollMarkers: [],
+  selectedVoiceId: 'English_expressive_narrator',
+  selectedEmotion: 'auto',
+  generatedAudio: null,
+  avatarPrompts: [],
+  generatedAvatarUrls: [],
+  selectedAvatarIndex: 0,
+  customAvatarPrompt: '',
+  talkingHeadVideoUrl: null,
+  finalStitchedVideoUrl: null,
+  isProcessing: false,
+  processingMessage: '',
+  error: null,
+};
 
 export interface CanvasElement {
   id: string;

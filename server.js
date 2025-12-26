@@ -608,6 +608,474 @@ function extractUrlFromOutput(output) {
   return url;
 }
 
+// ========== INFLUENCER CONTENT MODULE ENDPOINTS ==========
+
+// Script Refinement - Uses Gemini 3 Pro to refine script and identify B-roll segments
+app.post('/api/influencer/refine-script', async (req, res) => {
+  try {
+    const { rawScript, style = 'professional' } = req.body;
+
+    if (!rawScript || rawScript.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Script content is required' });
+    }
+
+    logger.request('/api/influencer/refine-script', { scriptLength: rawScript.length, style });
+
+    const systemPrompt = `You are an expert video script editor for influencer content. Your job is to:
+1. Refine the script for ${style} tone while keeping the core message
+2. Identify 2-4 segments where B-roll footage would enhance the video
+3. Return a JSON response with the refined script and B-roll markers
+
+For each B-roll marker, provide:
+- textStart: character index where the B-roll segment starts
+- textEnd: character index where the B-roll segment ends  
+- prompt: a detailed prompt for generating relevant B-roll video (5-10 words, visual and cinematic)
+
+Return ONLY valid JSON in this exact format:
+{
+  "refinedScript": "The refined script text...",
+  "brollMarkers": [
+    { "textStart": 0, "textEnd": 50, "prompt": "Aerial view of modern cityscape at sunset" },
+    { "textStart": 100, "textEnd": 150, "prompt": "Close-up hands typing on laptop keyboard" }
+  ]
+}`;
+
+    const input = {
+      prompt: `${systemPrompt}\n\nOriginal Script:\n${rawScript}`,
+      max_tokens: 4096,
+      temperature: 0.7,
+    };
+
+    const output = await replicate.run('google/gemini-3-pro', { input });
+
+    let result;
+    if (typeof output === 'string') {
+      result = output;
+    } else if (Array.isArray(output)) {
+      result = output.join('');
+    } else {
+      result = String(output);
+    }
+
+    // Parse JSON from response
+    const jsonMatch = result.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Failed to parse AI response as JSON');
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    // Add IDs to markers
+    const markersWithIds = (parsed.brollMarkers || []).map((marker, index) => ({
+      id: `broll-${Date.now()}-${index}`,
+      ...marker,
+      status: 'pending'
+    }));
+
+    logger.response('/api/influencer/refine-script', {
+      refinedLength: parsed.refinedScript?.length,
+      markerCount: markersWithIds.length
+    });
+
+    res.json({
+      success: true,
+      refinedScript: parsed.refinedScript,
+      brollMarkers: markersWithIds
+    });
+
+  } catch (error) {
+    logger.error('/api/influencer/refine-script', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to refine script'
+    });
+  }
+});
+
+// Audio Generation - Uses MiniMax Speech 2.6 HD for high-quality TTS
+app.post('/api/influencer/generate-audio', async (req, res) => {
+  try {
+    const {
+      text,
+      voiceId = 'English_expressive_narrator',
+      emotion = 'auto',
+      speed = 1.0,
+      audioFormat = 'mp3'
+    } = req.body;
+
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Text content is required' });
+    }
+
+    logger.request('/api/influencer/generate-audio', {
+      textLength: text.length,
+      voiceId,
+      emotion
+    });
+
+    const input = {
+      text: text,
+      voice_id: voiceId,
+      emotion: emotion,
+      speed: speed,
+      audio_format: audioFormat,
+      sample_rate: 32000,
+      bitrate: 128000,
+      subtitle_enable: true
+    };
+
+    console.log('Generating audio with minimax/speech-2.6-hd...');
+    const output = await replicate.run('minimax/speech-2.6-hd', { input });
+
+    // Extract audio URL from output
+    let audioUrl;
+    if (output && typeof output === 'object' && output.audio) {
+      audioUrl = typeof output.audio.url === 'function' ? output.audio.url() : output.audio.url || output.audio;
+    } else if (typeof output === 'string') {
+      audioUrl = output;
+    } else if (output && output.url) {
+      audioUrl = typeof output.url === 'function' ? output.url() : output.url;
+    }
+
+    // Convert URL object to string if needed
+    if (audioUrl && typeof audioUrl === 'object' && audioUrl.toString) {
+      audioUrl = audioUrl.toString();
+    }
+
+    if (!audioUrl || typeof audioUrl !== 'string') {
+      console.error('Unexpected audio output format:', output);
+      throw new Error('Invalid audio URL received from MiniMax');
+    }
+
+    // Extract duration if available
+    const durationMs = output?.duration_ms || output?.metadata?.duration_ms || null;
+
+    logger.response('/api/influencer/generate-audio', { audioUrl: audioUrl.substring(0, 50) + '...' });
+
+    res.json({
+      success: true,
+      audioUrl: audioUrl,
+      durationMs: durationMs,
+      subtitles: output?.subtitles || null
+    });
+
+  } catch (error) {
+    logger.error('/api/influencer/generate-audio', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate audio'
+    });
+  }
+});
+
+// B-Roll Video Generation - Uses VEO 3.1 Fast for quick B-roll clips
+app.post('/api/influencer/generate-broll', async (req, res) => {
+  try {
+    const {
+      prompt,
+      duration = 4,
+      aspectRatio = '16:9'
+    } = req.body;
+
+    if (!prompt || prompt.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Prompt is required' });
+    }
+
+    logger.request('/api/influencer/generate-broll', { prompt, duration, aspectRatio });
+
+    // Veo only supports durations: 4, 6, or 8 seconds
+    const validDurations = [4, 6, 8];
+    let videoDuration = parseInt(duration);
+    if (!validDurations.includes(videoDuration)) {
+      videoDuration = validDurations.reduce((prev, curr) =>
+        Math.abs(curr - videoDuration) < Math.abs(prev - videoDuration) ? curr : prev
+      );
+    }
+
+    // Veo only supports 16:9 or 9:16
+    const validAspectRatio = (aspectRatio === '16:9' || aspectRatio === '9:16') ? aspectRatio : '16:9';
+
+    const input = {
+      prompt: `Cinematic B-roll footage: ${prompt}. High quality, smooth motion, professional videography.`,
+      duration: videoDuration,
+      aspect_ratio: validAspectRatio,
+      resolution: '720p'
+    };
+
+    console.log('Generating B-roll with google/veo-3.1-fast...');
+    const output = await replicate.run('google/veo-3.1-fast', { input });
+
+    const videoUrl = extractUrlFromOutput(output);
+
+    logger.response('/api/influencer/generate-broll', { videoUrl: videoUrl.substring(0, 50) + '...' });
+
+    res.json({
+      success: true,
+      videoUrl: videoUrl
+    });
+
+  } catch (error) {
+    logger.error('/api/influencer/generate-broll', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate B-roll video'
+    });
+  }
+});
+
+// Avatar Image Generation - Auto-generates 3 variants based on script and voice
+app.post('/api/influencer/generate-avatar', async (req, res) => {
+  try {
+    const {
+      refinedScript,
+      voiceId,
+      customPrompt // Optional: for manual avatar creation
+    } = req.body;
+
+    // Validate inputs
+    if (!refinedScript && !customPrompt) {
+      return res.status(400).json({ success: false, error: 'Script or custom prompt is required' });
+    }
+
+    logger.request('/api/influencer/generate-avatar', {
+      scriptLength: refinedScript?.length,
+      voiceId,
+      hasCustomPrompt: !!customPrompt
+    });
+
+    // Determine gender from voice ID
+    const isWoman = voiceId?.toLowerCase().includes('woman') ||
+      voiceId?.toLowerCase().includes('female') ||
+      voiceId?.toLowerCase().includes('narrator_female');
+    const isMale = voiceId?.toLowerCase().includes('man') ||
+      voiceId?.toLowerCase().includes('male') ||
+      voiceId?.toLowerCase().includes('narrator_male');
+    const gender = isWoman ? 'woman' : (isMale ? 'man' : 'person');
+
+    // If custom prompt provided, generate just one avatar
+    if (customPrompt) {
+      const input = {
+        prompt: `Professional portrait photo of ${customPrompt}. Looking at camera, confident expression, clean studio background, professional lighting, high quality headshot, 9:16 vertical format.`,
+        aspect_ratio: '9:16',
+        resolution: '2K',
+        output_format: 'png',
+        safety_filter_level: 'block_only_high'
+      };
+
+      console.log('Generating custom avatar with google/nano-banana-pro...');
+      const output = await replicate.run('google/nano-banana-pro', { input });
+      const imageUrl = extractUrlFromOutput(output);
+
+      return res.json({
+        success: true,
+        avatarUrls: [imageUrl],
+        prompts: [customPrompt]
+      });
+    }
+
+    // Generate 3 avatar prompts based on script context using Gemini
+    const analysisPrompt = `Analyze this influencer video script and suggest 3 different avatar descriptions for a ${gender} presenter.
+    
+Script:
+${refinedScript.substring(0, 500)}
+
+Return ONLY a JSON array with 3 short avatar descriptions (no explanation, just the array):
+["description 1", "description 2", "description 3"]
+
+Each description should be 10-20 words describing the person's appearance, style, and attire suitable for this content.
+Focus on: age range, ethnicity diversity, professional attire, and confident expressions.`;
+
+    const analysisInput = {
+      prompt: analysisPrompt,
+      max_tokens: 500,
+      temperature: 0.8,
+    };
+
+    console.log('Analyzing script for avatar prompts...');
+    const analysisOutput = await replicate.run('google/gemini-3-pro', { input: analysisInput });
+
+    let analysisResult = typeof analysisOutput === 'string' ? analysisOutput :
+      Array.isArray(analysisOutput) ? analysisOutput.join('') : String(analysisOutput);
+
+    // Parse the JSON array of prompts
+    let avatarPrompts = [];
+    try {
+      const jsonMatch = analysisResult.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        avatarPrompts = JSON.parse(jsonMatch[0]);
+      }
+    } catch (e) {
+      // Fallback prompts if parsing fails
+      avatarPrompts = [
+        `Professional ${gender} in business casual attire, confident smile, modern look`,
+        `Approachable ${gender} with warm expression, smart casual clothing, friendly demeanor`,
+        `Dynamic ${gender} with energetic presence, contemporary style, engaging expression`
+      ];
+    }
+
+    // Ensure we have exactly 3 prompts
+    while (avatarPrompts.length < 3) {
+      avatarPrompts.push(`Professional ${gender} with confident expression and modern attire`);
+    }
+    avatarPrompts = avatarPrompts.slice(0, 3);
+
+    // Generate all 3 avatars in parallel
+    console.log('Generating 3 avatar variants with google/nano-banana-pro...');
+    const avatarPromises = avatarPrompts.map(async (prompt) => {
+      const input = {
+        prompt: `Professional portrait photo of a ${prompt}. Looking at camera, confident expression, clean studio background, professional lighting, high quality headshot for video content, 9:16 vertical format.`,
+        aspect_ratio: '9:16',
+        resolution: '2K',
+        output_format: 'png',
+        safety_filter_level: 'block_only_high'
+      };
+
+      const output = await replicate.run('google/nano-banana-pro', { input });
+      return extractUrlFromOutput(output);
+    });
+
+    const avatarUrls = await Promise.all(avatarPromises);
+
+    logger.response('/api/influencer/generate-avatar', {
+      avatarCount: avatarUrls.length,
+      prompts: avatarPrompts
+    });
+
+    res.json({
+      success: true,
+      avatarUrls: avatarUrls,
+      prompts: avatarPrompts
+    });
+
+  } catch (error) {
+    logger.error('/api/influencer/generate-avatar', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate avatars'
+    });
+  }
+});
+
+// Talking Head Video Generation - Uses OmniHuman 1.5 to animate avatar with audio
+app.post('/api/influencer/generate-talking-head', async (req, res) => {
+  try {
+    const {
+      imageUrl,
+      audioUrl,
+      prompt = ''
+    } = req.body;
+
+    if (!imageUrl) {
+      return res.status(400).json({ success: false, error: 'Avatar image URL is required' });
+    }
+    if (!audioUrl) {
+      return res.status(400).json({ success: false, error: 'Audio URL is required' });
+    }
+
+    logger.request('/api/influencer/generate-talking-head', {
+      hasImageUrl: !!imageUrl,
+      hasAudioUrl: !!audioUrl,
+      promptLength: prompt?.length || 0
+    });
+
+    const input = {
+      image: imageUrl,
+      audio: audioUrl
+    };
+
+    // Optional prompt for controlling expressions/movements
+    if (prompt && prompt.trim().length > 0) {
+      input.prompt = prompt;
+    }
+
+    console.log('Generating talking head with bytedance/omni-human-1.5...');
+    console.log('Input:', JSON.stringify({ ...input, image: input.image?.substring(0, 50) + '...', audio: input.audio?.substring(0, 50) + '...' }, null, 2));
+
+    const output = await replicate.run('bytedance/omni-human-1.5', { input });
+
+    const videoUrl = extractUrlFromOutput(output);
+
+    logger.response('/api/influencer/generate-talking-head', { videoUrl: videoUrl.substring(0, 50) + '...' });
+
+    res.json({
+      success: true,
+      videoUrl: videoUrl
+    });
+
+  } catch (error) {
+    logger.error('/api/influencer/generate-talking-head', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate talking head video'
+    });
+  }
+});
+
+// Video Stitching - Combines talking head video with B-roll segments
+// Note: This is a simple concatenation endpoint. For complex stitching, consider using ffmpeg
+app.post('/api/influencer/stitch-video', async (req, res) => {
+  try {
+    const {
+      talkingHeadUrl,
+      brollSegments = [] // Array of { url, insertAtMs, durationMs }
+    } = req.body;
+
+    if (!talkingHeadUrl) {
+      return res.status(400).json({ success: false, error: 'Talking head video URL is required' });
+    }
+
+    logger.request('/api/influencer/stitch-video', {
+      hasTalkingHead: !!talkingHeadUrl,
+      brollCount: brollSegments.length
+    });
+
+    // For now, if no B-roll segments, just return the talking head video
+    // In a full implementation, this would use ffmpeg or a video stitching service
+    if (brollSegments.length === 0) {
+      logger.response('/api/influencer/stitch-video', { finalUrl: talkingHeadUrl.substring(0, 50) + '...' });
+      return res.json({
+        success: true,
+        finalVideoUrl: talkingHeadUrl,
+        segments: [{ type: 'talking-head', url: talkingHeadUrl }]
+      });
+    }
+
+    // Build segment list for client-side preview/export
+    // Full stitching would require a video processing service
+    const segments = [
+      { type: 'talking-head', url: talkingHeadUrl, startMs: 0 },
+      ...brollSegments.map((broll, index) => ({
+        type: 'broll',
+        url: broll.url,
+        insertAtMs: broll.insertAtMs,
+        durationMs: broll.durationMs,
+        index
+      }))
+    ];
+
+    logger.response('/api/influencer/stitch-video', {
+      segmentCount: segments.length,
+      hasStitchedVideo: false
+    });
+
+    // For MVP, return segment list for client-side handling
+    // TODO: Implement server-side video stitching with ffmpeg
+    res.json({
+      success: true,
+      finalVideoUrl: talkingHeadUrl, // Primary video
+      segments: segments,
+      note: 'Video segments returned for client-side assembly. Full server-side stitching coming soon.'
+    });
+
+  } catch (error) {
+    logger.error('/api/influencer/stitch-video', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to stitch video'
+    });
+  }
+});
+
 // Start server only if run directly (not imported as a module)
 if (process.env.NODE_ENV !== 'production' && process.env.VERCEL !== '1') {
   app.listen(PORT, () => {

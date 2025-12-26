@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AspectRatio, ImageSize, ImageSettings, GeneratedImage, DEFAULT_SETTINGS, LIGHTING_OPTIONS, ANGLE_OPTIONS, MOOD_OPTIONS, FRAMING_OPTIONS, CAMERA_ANGLE_OPTIONS, DI_WORKFLOW_OPTIONS, StoryFlowState, Character, SidebarMode, RelightLight, CharacterReference, VideoSettings, VIDEO_MODELS, VIDEO_DURATIONS, VIDEO_FRAMERATES, ReplicateVideoSettings } from '../types';
 import { generateImageWithReplicate, analyzeStoryboardFlowWithReplicate, generatePersonaPromptWithReplicate, improveVideoPromptWithReplicate, generateVideoWithReplicate, hasValidReplicateApiKey, REPLICATE_VIDEO_MODELS as REPLICATE_MODELS } from '../services/replicateService';
-import { ArrowDownTrayIcon, BoltIcon, PhotoIcon, CheckCircleIcon, XMarkIcon, PlusIcon, VideoCameraIcon, EyeIcon, LinkIcon, PaintBrushIcon, SparklesIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, UserGroupIcon, TrashIcon, CloudArrowDownIcon, LightBulbIcon, FilmIcon, ChevronUpIcon, ChevronDownIcon, PencilSquareIcon, PlayIcon, KeyIcon, ExclamationTriangleIcon, AdjustmentsHorizontalIcon, RectangleGroupIcon, CubeIcon, QueueListIcon, PaperClipIcon, SwatchIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, BoltIcon, PhotoIcon, CheckCircleIcon, XMarkIcon, PlusIcon, VideoCameraIcon, EyeIcon, LinkIcon, PaintBrushIcon, SparklesIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, UserGroupIcon, TrashIcon, CloudArrowDownIcon, LightBulbIcon, FilmIcon, ChevronUpIcon, ChevronDownIcon, PencilSquareIcon, PlayIcon, KeyIcon, ExclamationTriangleIcon, AdjustmentsHorizontalIcon, RectangleGroupIcon, CubeIcon, QueueListIcon, PaperClipIcon, SwatchIcon, MegaphoneIcon } from '@heroicons/react/24/outline';
 import { UserIcon } from '@heroicons/react/24/solid';
 import { MINIMAX_VOICES } from '../types';
 import { CINEMA_CAMERAS, CINEMA_LENSES, CINEMA_PRESETS } from '../data/cinemaGear';
@@ -9,6 +9,7 @@ import CameraControls from './OrbitCamera';
 import RelightPanel from './RelightPanel';
 import SmartBanners from './SmartBanners';
 import ThumbnailStudio from './ThumbnailStudio';
+import InfluencerContent from './InfluencerContent';
 
 interface StudioPanelProps {
     initialPrompt: string;
@@ -720,6 +721,11 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                     <div className="absolute left-14 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition z-50 whitespace-nowrap ml-2">Thumbnail Studio</div>
                     {activeSidebar === 'thumbnail-studio' && <div className="absolute left-0 top-2 bottom-2 w-1 bg-rose-500 rounded-r"></div>}
                 </button>
+                <button onClick={() => toggleSidebar('influencer')} className={`p-2 rounded-xl transition-all relative group shadow-sm ${activeSidebar === 'influencer' ? 'text-orange-500 bg-[var(--bg-input)] ring-1 ring-orange-500/20' : 'text-[var(--text-muted)] hover:text-orange-500 hover:bg-[var(--bg-hover)]'}`} title="Influencer Content">
+                    <div className="w-6 h-6 flex items-center justify-center"><MegaphoneIcon className="w-6 h-6" /></div>
+                    <div className="absolute left-14 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition z-50 whitespace-nowrap ml-2">Influencer Content</div>
+                    {activeSidebar === 'influencer' && <div className="absolute left-0 top-2 bottom-2 w-1 bg-orange-500 rounded-r"></div>}
+                </button>
             </div>
 
             {/* Expansible Sidebar Content */}
@@ -1108,8 +1114,13 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                 <ThumbnailStudio externalAssets={importedAssets} onRemoveExternalAsset={handleRemoveImportedAsset} />
             </div>
 
+            {/* Influencer Content Module */}
+            <div className={`flex-1 min-w-0 ${activeSidebar === 'influencer' ? 'block' : 'hidden'}`}>
+                <InfluencerContent />
+            </div>
+
             {/* Main Visual Studio Module */}
-            <div className={`flex-1 flex flex-col h-full min-w-0 transition-all duration-300 ${['smart-banners', 'thumbnail-studio'].includes(activeSidebar) ? 'hidden' : 'flex'}`}>
+            <div className={`flex-1 flex flex-col h-full min-w-0 transition-all duration-300 ${['smart-banners', 'thumbnail-studio', 'influencer'].includes(activeSidebar) ? 'hidden' : 'flex'}`}>
                 <div className="p-2 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-none sticky top-0 z-10">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
