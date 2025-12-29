@@ -1076,6 +1076,170 @@ app.post('/api/influencer/stitch-video', async (req, res) => {
   }
 });
 
+// =============================================
+// Timeline Editor Endpoints
+// =============================================
+
+// Extract Audio from Video - Returns audio URL and basic metadata
+app.post('/api/influencer/extract-audio', async (req, res) => {
+  try {
+    const { videoUrl } = req.body;
+
+    if (!videoUrl) {
+      return res.status(400).json({ success: false, error: 'Video URL is required' });
+    }
+
+    logger.request('/api/influencer/extract-audio', { videoUrl: videoUrl.substring(0, 50) + '...' });
+
+    // For MVP, we'll use a simple approach:
+    // 1. If the video already has audio, we return a reference
+    // 2. In production, this would use FFmpeg or a cloud service to extract audio
+
+    // Simulate audio extraction (in production, use FFmpeg.wasm or cloud processing)
+    const audioDurationMs = 30000; // Default duration
+
+    // For now, return the original audio URL if available, or indicate extraction needed
+    const result = {
+      success: true,
+      audioUrl: videoUrl, // In production: extracted audio file URL
+      durationMs: audioDurationMs,
+      sampleRate: 44100,
+      channels: 2,
+      note: 'Audio extraction simulated. Use FFmpeg for production.',
+    };
+
+    logger.response('/api/influencer/extract-audio', result);
+    res.json(result);
+
+  } catch (error) {
+    logger.error('/api/influencer/extract-audio', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to extract audio'
+    });
+  }
+});
+
+// Generate Waveform Data - Returns amplitude samples for visualization
+app.post('/api/influencer/generate-waveform', async (req, res) => {
+  try {
+    const { audioUrl, samples = 150 } = req.body;
+
+    if (!audioUrl) {
+      return res.status(400).json({ success: false, error: 'Audio URL is required' });
+    }
+
+    logger.request('/api/influencer/generate-waveform', {
+      audioUrl: audioUrl.substring(0, 50) + '...',
+      samples
+    });
+
+    // Generate waveform data
+    // In production, this would analyze the actual audio file
+    // For MVP, we generate realistic-looking random waveform data
+    const waveformData = [];
+    const numSamples = Math.min(Math.max(samples, 50), 500); // Clamp between 50-500
+
+    // Create a wave pattern with some randomness to look realistic
+    for (let i = 0; i < numSamples; i++) {
+      // Base wave with some variation
+      const position = i / numSamples;
+      const baseAmplitude = 0.3 + 0.2 * Math.sin(position * Math.PI * 4);
+      const randomVariation = Math.random() * 0.4;
+      const amplitude = Math.min(1, Math.max(0.1, baseAmplitude + randomVariation));
+      waveformData.push(amplitude);
+    }
+
+    const result = {
+      success: true,
+      waveformData,
+      sampleCount: waveformData.length,
+      note: 'Waveform generated. For production, analyze actual audio.',
+    };
+
+    logger.response('/api/influencer/generate-waveform', { sampleCount: waveformData.length });
+    res.json(result);
+
+  } catch (error) {
+    logger.error('/api/influencer/generate-waveform', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate waveform'
+    });
+  }
+});
+
+// Export Video - Combines segments with export settings
+app.post('/api/influencer/export-video', async (req, res) => {
+  try {
+    const {
+      segments = [],
+      audioTracks = [],
+      settings = {}
+    } = req.body;
+
+    const { resolution = '1080p', format = 'mp4', burnInCaptions = false } = settings;
+
+    logger.request('/api/influencer/export-video', {
+      segmentCount: segments.length,
+      audioTrackCount: audioTracks.length,
+      resolution,
+      format,
+      burnInCaptions
+    });
+
+    // Validate required data
+    if (segments.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'At least one video segment is required for export'
+      });
+    }
+
+    // Calculate total duration
+    const totalDurationMs = segments.reduce((sum, seg) => sum + (seg.durationMs || 0), 0);
+
+    // Estimate file size based on resolution and duration
+    const mbPerMinute = resolution === '4K' ? 200 : resolution === '1080p' ? 50 : 25;
+    const estimatedSizeMb = Math.round((totalDurationMs / 60000) * mbPerMinute);
+
+    // For MVP, return the primary video URL with metadata
+    // In production, this would trigger a video processing job
+    const primarySegment = segments.find(s => s.type === 'talking-head') || segments[0];
+
+    const result = {
+      success: true,
+      exportId: `export-${Date.now()}`,
+      finalVideoUrl: primarySegment?.videoUrl || null,
+      metadata: {
+        resolution,
+        format,
+        burnInCaptions,
+        totalDurationMs,
+        estimatedSizeMb,
+        segmentCount: segments.length,
+        audioTrackCount: audioTracks.length
+      },
+      status: 'complete', // In production: 'processing' -> poll for completion
+      note: 'Export simulated. For production, use FFmpeg cloud service.'
+    };
+
+    logger.response('/api/influencer/export-video', {
+      exportId: result.exportId,
+      estimatedSizeMb: result.metadata.estimatedSizeMb
+    });
+
+    res.json(result);
+
+  } catch (error) {
+    logger.error('/api/influencer/export-video', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to export video'
+    });
+  }
+});
+
 // Start server only if run directly (not imported as a module)
 if (process.env.NODE_ENV !== 'production' && process.env.VERCEL !== '1') {
   app.listen(PORT, () => {

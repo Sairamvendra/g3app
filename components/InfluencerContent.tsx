@@ -21,7 +21,9 @@ import {
     INFLUENCER_EMOTIONS,
     DEFAULT_INFLUENCER_STATE,
     InfluencerEmotion,
+    ExportSettings,
 } from '../types';
+import VideoTimelineEditor from './VideoTimelineEditor';
 
 const API_BASE = 'http://localhost:3002';
 
@@ -330,6 +332,72 @@ const InfluencerContent: React.FC = () => {
                 isProcessing: false,
                 processingMessage: '',
                 error: error.message || 'Failed to stitch video',
+            }));
+        }
+    };
+
+    const handleExportVideo = async (settings: ExportSettings) => {
+        setState((prev) => ({ ...prev, isProcessing: true, processingMessage: `Exporting video as ${settings.resolution} ${settings.format.toUpperCase()}...`, error: null }));
+
+        try {
+            // Build segments for export
+            const segments = [
+                ...(state.talkingHeadVideoUrl ? [{
+                    id: 'talking-head',
+                    type: 'talking-head',
+                    videoUrl: state.talkingHeadVideoUrl,
+                    durationMs: 30000, // Placeholder
+                }] : []),
+                ...state.brollMarkers
+                    .filter((m) => m.status === 'complete' && m.videoUrl)
+                    .map((m) => ({
+                        id: m.id,
+                        type: 'broll',
+                        videoUrl: m.videoUrl,
+                        durationMs: 4000,
+                    })),
+            ];
+
+            const audioTracks = state.generatedAudio ? [{
+                id: 'main-audio',
+                audioUrl: state.generatedAudio.url,
+                durationMs: state.generatedAudio.durationMs,
+            }] : [];
+
+            const response = await fetch(`${API_BASE}/api/influencer/export-video`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    segments,
+                    audioTracks,
+                    settings,
+                }),
+            });
+
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error);
+
+            // Download the video
+            if (data.finalVideoUrl) {
+                const link = document.createElement('a');
+                link.href = data.finalVideoUrl;
+                link.download = `influencer-video-${data.metadata.resolution}.${data.metadata.format}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            setState((prev) => ({
+                ...prev,
+                isProcessing: false,
+                processingMessage: '',
+            }));
+        } catch (error: any) {
+            setState((prev) => ({
+                ...prev,
+                isProcessing: false,
+                processingMessage: '',
+                error: error.message || 'Failed to export video',
             }));
         }
     };
@@ -693,49 +761,31 @@ const InfluencerContent: React.FC = () => {
                     </div>
                 )}
 
-                {/* Step 5: Stitch & Export */}
+                {/* Step 5: Timeline Editor & Export */}
                 {state.currentStep === 5 && (
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-semibold">Final Video</h2>
+                    <div className="h-full">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-semibold">Final Review & Export</h2>
                             <button onClick={() => goToStep(4)} className="text-sm text-[var(--text-secondary)] hover:text-rose-400 flex items-center gap-1">
                                 <ArrowLeftIcon className="w-4 h-4" /> Back
                             </button>
                         </div>
 
-                        <div className="p-4 bg-[var(--bg-card)] border border-emerald-500/30 rounded-xl text-center">
-                            <CheckCircleIcon className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
-                            <h3 className="text-lg font-bold mb-2">Video Complete!</h3>
-                            <p className="text-sm text-[var(--text-secondary)] mb-4">Your talking head video is ready for export.</p>
-
-                            {state.finalStitchedVideoUrl && (
-                                <video controls className="w-full rounded-lg mb-4" src={state.finalStitchedVideoUrl}>Your browser does not support video.</video>
-                            )}
-
-                            {/* Asset Summary */}
-                            <div className="grid grid-cols-3 gap-3 mb-4">
-                                <div className="p-3 bg-[var(--bg-main)] rounded-lg text-center">
-                                    <SpeakerWaveIcon className="w-6 h-6 text-rose-400 mx-auto mb-1" />
-                                    <p className="text-xs text-[var(--text-secondary)]">Voiceover</p>
-                                </div>
-                                <div className="p-3 bg-[var(--bg-main)] rounded-lg text-center">
-                                    <UserIcon className="w-6 h-6 text-rose-400 mx-auto mb-1" />
-                                    <p className="text-xs text-[var(--text-secondary)]">Avatar</p>
-                                </div>
-                                <div className="p-3 bg-[var(--bg-main)] rounded-lg text-center">
-                                    <VideoCameraIcon className="w-6 h-6 text-rose-400 mx-auto mb-1" />
-                                    <p className="text-xs text-[var(--text-secondary)]">{state.brollMarkers.length} B-Roll</p>
-                                </div>
-                            </div>
-
-                            <a
-                                href={state.finalStitchedVideoUrl || '#'}
-                                download="influencer-video.mp4"
-                                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-medium hover:from-emerald-600 hover:to-teal-600 transition-all"
-                            >
-                                Download Video
-                            </a>
-                        </div>
+                        <VideoTimelineEditor
+                            talkingHeadVideoUrl={state.talkingHeadVideoUrl}
+                            audioUrl={state.generatedAudio?.url || null}
+                            brollSegments={state.brollMarkers.map(m => ({
+                                id: m.id,
+                                url: m.videoUrl,
+                                prompt: m.prompt,
+                                durationMs: 4000
+                            }))}
+                            onExport={handleExportVideo}
+                            onRegenerate={(segmentId: string) => {
+                                const marker = state.brollMarkers.find(m => m.id === segmentId);
+                                if (marker) handleGenerateBRoll(marker);
+                            }}
+                        />
                     </div>
                 )}
             </div>

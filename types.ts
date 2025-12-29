@@ -403,3 +403,75 @@ export interface ThumbnailState {
     activeElementId: string | null;
   };
 }
+
+// =============================================
+// Video Timeline Editor Types
+// =============================================
+
+export interface TimelineSegment {
+  id: string;
+  type: 'talking-head' | 'broll' | 'intro' | 'outro';
+  label: string;
+  startMs: number;
+  durationMs: number;
+  videoUrl: string;
+  thumbnailUrl?: string;
+}
+
+export interface AudioTrack {
+  id: string;
+  label: string;
+  startMs: number;
+  durationMs: number;
+  audioUrl: string;
+  waveformData: number[]; // Amplitude samples for visualization (0-1)
+  volume: number; // 0-1
+  muted: boolean;
+}
+
+export type VideoResolution = '720p' | '1080p' | '4K';
+export type VideoFormat = 'mp4' | 'mov';
+
+export interface ExportSettings {
+  resolution: VideoResolution;
+  format: VideoFormat;
+  burnInCaptions: boolean;
+}
+
+export interface SceneHealth {
+  avatarAudioSync: 'good' | 'warning' | 'error';
+  brollTransitions: Array<{ segmentId: string; status: 'good' | 'warning'; message?: string }>;
+}
+
+export interface TimelineState {
+  segments: TimelineSegment[];
+  audioTracks: AudioTrack[];
+  currentTimeMs: number;
+  totalDurationMs: number;
+  isPlaying: boolean;
+  playbackSpeed: number;
+  selectedSegmentId: string | null;
+  exportSettings: ExportSettings;
+  sceneHealth: SceneHealth;
+}
+
+export const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
+  resolution: '1080p',
+  format: 'mp4',
+  burnInCaptions: false,
+};
+
+export const DEFAULT_TIMELINE_STATE: TimelineState = {
+  segments: [],
+  audioTracks: [],
+  currentTimeMs: 0,
+  totalDurationMs: 0,
+  isPlaying: false,
+  playbackSpeed: 1,
+  selectedSegmentId: null,
+  exportSettings: DEFAULT_EXPORT_SETTINGS,
+  sceneHealth: {
+    avatarAudioSync: 'good',
+    brollTransitions: [],
+  },
+};
