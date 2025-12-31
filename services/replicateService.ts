@@ -857,11 +857,19 @@ NEGATIVE PROMPT / EXCLUSIONS:
         image_input: input.image_input,
         model: settings.model || 'google/nano-banana-pro',
         output_format: input.output_format,
-        // Flux parameters
-        steps: settings.fluxSettings?.steps,
-        guidance: settings.fluxSettings?.guidance,
-        output_quality: settings.fluxSettings?.output_quality,
-        safety_tolerance: settings.fluxSettings?.safety_tolerance,
+        // Flux parameters (only for Flux models)
+        steps: settings.model?.includes('flux') ? settings.fluxSettings?.steps : undefined,
+        safety_tolerance: settings.model?.includes('flux') ? settings.fluxSettings?.safety_tolerance : undefined,
+        // Shared/conditional parameters
+        guidance: settings.model === 'qwen/qwen-image-2512' ? settings.qwenSettings?.guidance : settings.fluxSettings?.guidance,
+        output_quality: settings.model === 'qwen/qwen-image-2512' ? settings.qwenSettings?.output_quality : settings.fluxSettings?.output_quality,
+        // Qwen-specific parameters
+        negative_prompt: settings.model === 'qwen/qwen-image-2512' ? settings.qwenSettings?.negative_prompt : undefined,
+        num_inference_steps: settings.model === 'qwen/qwen-image-2512' ? settings.qwenSettings?.num_inference_steps : undefined,
+        go_fast: settings.model === 'qwen/qwen-image-2512' ? settings.qwenSettings?.go_fast : undefined,
+        strength: settings.model === 'qwen/qwen-image-2512' ? settings.qwenSettings?.strength : undefined,
+        seed: settings.model === 'qwen/qwen-image-2512' ? settings.qwenSettings?.seed : undefined,
+        disable_safety_checker: settings.model === 'qwen/qwen-image-2512' ? settings.qwenSettings?.disable_safety_checker : undefined,
         // Custom dimensions for 21:9 on Flux
         custom_width: ((settings.model === 'black-forest-labs/flux-2-flex' || settings.model === 'black-forest-labs/flux-2-max') && settings.aspectRatio === '21:9') ? getFluxDimensions(settings.imageSize).width : undefined,
         custom_height: ((settings.model === 'black-forest-labs/flux-2-flex' || settings.model === 'black-forest-labs/flux-2-max') && settings.aspectRatio === '21:9') ? getFluxDimensions(settings.imageSize).height : undefined,

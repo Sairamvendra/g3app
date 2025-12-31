@@ -181,6 +181,60 @@ app.post('/api/generate/image', async (req, res) => {
       if (output_quality !== undefined) input.output_quality = output_quality;
       if (safety_tolerance !== undefined) input.safety_tolerance = safety_tolerance;
 
+    } else if (model === 'qwen/qwen-image-2512') {
+      // Qwen Image 2512 parameters - matching exact API schema
+      input.prompt = prompt;
+
+      // Negative prompt (default: " ")
+      if (req.body.negative_prompt) {
+        input.negative_prompt = req.body.negative_prompt;
+      }
+
+      // Aspect ratio - Qwen supports: 1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3, custom
+      const validQwenRatios = ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', 'custom'];
+      if (aspect_ratio && validQwenRatios.includes(aspect_ratio)) {
+        input.aspect_ratio = aspect_ratio;
+      } else if (aspect_ratio === '21:9' || aspect_ratio === '5:4' || aspect_ratio === '4:5') {
+        // Handle unsupported ratios with custom dimensions
+        input.aspect_ratio = 'custom';
+        if (aspect_ratio === '21:9') { input.width = 1792; input.height = 768; }
+        else if (aspect_ratio === '5:4') { input.width = 1280; input.height = 1024; }
+        else if (aspect_ratio === '4:5') { input.width = 1024; input.height = 1280; }
+      } else {
+        input.aspect_ratio = '16:9'; // Default
+      }
+
+      // Guidance (0-10, default 4)
+      if (req.body.guidance !== undefined) input.guidance = req.body.guidance;
+
+      // Inference steps (20-50, default 40)
+      if (req.body.num_inference_steps !== undefined) input.num_inference_steps = req.body.num_inference_steps;
+
+      // Go fast (default true)
+      if (req.body.go_fast !== undefined) input.go_fast = req.body.go_fast;
+
+      // Output format (webp, jpg, png - default webp)
+      input.output_format = 'png'; // Override to png for consistency
+
+      // Output quality (0-100, default 95)
+      if (req.body.output_quality !== undefined) input.output_quality = req.body.output_quality;
+
+      // Seed (optional)
+      if (req.body.seed !== undefined && req.body.seed !== null) input.seed = req.body.seed;
+
+      // Disable safety checker (default false)
+      if (req.body.disable_safety_checker !== undefined) input.disable_safety_checker = req.body.disable_safety_checker;
+
+      // Image2Image support
+      if (req.body.image_input && req.body.image_input.length > 0) {
+        input.image = req.body.image_input[0];
+        // Strength for image2image (0-1, default 0.8)
+        if (req.body.strength !== undefined) input.strength = req.body.strength;
+      } else if (reference_image) {
+        input.image = reference_image;
+        if (req.body.strength !== undefined) input.strength = req.body.strength;
+      }
+
     } else {
       // Nano Banana Pro parameters (default)
       input.resolution = image_size || '2K';

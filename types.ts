@@ -45,6 +45,17 @@ export interface FluxSettings {
   output_quality: number; // 0-100, default 80
   interval: number; // 1-4, default 2 (for fast mode, maybe not exposed)
 }
+
+export interface QwenSettings {
+  negative_prompt: string; // Text describing what to avoid
+  seed?: number; // For reproducibility
+  guidance: number; // 0-10, default 4
+  num_inference_steps: number; // 20-50, default 40
+  go_fast: boolean; // default true
+  strength: number; // 0-1, default 0.8 (for image2image)
+  output_quality: number; // 0-100, default 95
+  disable_safety_checker: boolean; // default false
+}
 export interface CharacterReference {
   name: string;
   imageBase64: string;
@@ -75,8 +86,9 @@ export interface CinemaGearSettings {
 }
 
 export interface ImageSettings {
-  model?: 'google/nano-banana-pro' | 'black-forest-labs/flux-2-flex' | 'black-forest-labs/flux-2-max';
+  model?: 'google/nano-banana-pro' | 'black-forest-labs/flux-2-flex' | 'black-forest-labs/flux-2-max' | 'qwen/qwen-image-2512';
   fluxSettings?: FluxSettings;
+  qwenSettings?: QwenSettings;
   aspectRatio: AspectRatio;
   imageSize: ImageSize;
   lighting: string;
@@ -145,6 +157,15 @@ export const DEFAULT_SETTINGS: ImageSettings = {
     guidance: 3.5,
     output_quality: 90,
     interval: 2
+  },
+  qwenSettings: {
+    negative_prompt: '',
+    guidance: 4,
+    num_inference_steps: 40,
+    go_fast: true,
+    strength: 0.8,
+    output_quality: 95,
+    disable_safety_checker: false,
   },
   aspectRatio: '16:9',
   imageSize: '1K',

@@ -1309,10 +1309,11 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                                         <option value="google/nano-banana-pro">Nano Banana Pro</option>
                                         <option value="black-forest-labs/flux-2-flex">Flux 2.1 Flex</option>
                                         <option value="black-forest-labs/flux-2-max">Flux 2.1 Max</option>
+                                        <option value="qwen/qwen-image-2512">Qwen Image 2512</option>
                                     </select>
                                 </div>
                                 <div className="text-[10px] text-[var(--text-muted)]">
-                                    {settings.model?.includes('flux') ? 'Advanced model with high fidelity.' : 'Fast, efficient standard model.'}
+                                    {settings.model === 'qwen/qwen-image-2512' ? 'Realistic humans, natural textures, strong text rendering.' : settings.model?.includes('flux') ? 'Advanced model with high fidelity.' : 'Fast, efficient standard model.'}
                                 </div>
                             </div>
 
@@ -1354,12 +1355,101 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                                 </div>
                             )}
 
+                            {settings.model === 'qwen/qwen-image-2512' && settings.qwenSettings && (
+                                <div className="space-y-3 mb-4 p-3 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)]">
+                                    <h4 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2"><SparklesIcon className="w-3 h-3 text-cyan-400" /> Qwen Settings</h4>
+
+                                    <div>
+                                        <div className="flex justify-between text-[10px] text-[var(--text-secondary)] mb-1">
+                                            <span>Guidance</span>
+                                            <span>{settings.qwenSettings.guidance}</span>
+                                        </div>
+                                        <input type="range" min="0" max="10" step="0.5" value={settings.qwenSettings.guidance} onChange={(e) => setSettings({ ...settings, qwenSettings: { ...settings.qwenSettings!, guidance: parseFloat(e.target.value) } })} className="w-full" />
+                                    </div>
+
+                                    <div>
+                                        <div className="flex justify-between text-[10px] text-[var(--text-secondary)] mb-1">
+                                            <span>Inference Steps</span>
+                                            <span>{settings.qwenSettings.num_inference_steps}</span>
+                                        </div>
+                                        <input type="range" min="20" max="50" step="1" value={settings.qwenSettings.num_inference_steps} onChange={(e) => setSettings({ ...settings, qwenSettings: { ...settings.qwenSettings!, num_inference_steps: parseInt(e.target.value) } })} className="w-full" />
+                                    </div>
+
+                                    <div>
+                                        <div className="flex justify-between text-[10px] text-[var(--text-secondary)] mb-1">
+                                            <span>Output Quality</span>
+                                            <span>{settings.qwenSettings.output_quality}%</span>
+                                        </div>
+                                        <input type="range" min="0" max="100" step="5" value={settings.qwenSettings.output_quality} onChange={(e) => setSettings({ ...settings, qwenSettings: { ...settings.qwenSettings!, output_quality: parseInt(e.target.value) } })} className="w-full" />
+                                    </div>
+
+                                    <div>
+                                        <div className="flex justify-between text-[10px] text-[var(--text-secondary)] mb-1">
+                                            <span>Image2Image Strength</span>
+                                            <span>{settings.qwenSettings.strength}</span>
+                                        </div>
+                                        <input type="range" min="0" max="1" step="0.05" value={settings.qwenSettings.strength} onChange={(e) => setSettings({ ...settings, qwenSettings: { ...settings.qwenSettings!, strength: parseFloat(e.target.value) } })} className="w-full" />
+                                        <p className="text-[9px] text-[var(--text-muted)] mt-0.5">Higher = more creative, Lower = closer to reference image</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="flex items-center justify-between p-2 bg-[var(--bg-card)] rounded-lg border border-[var(--border-color)]">
+                                            <label className="text-[10px] text-[var(--text-secondary)]">Fast Mode</label>
+                                            <button
+                                                onClick={() => setSettings({ ...settings, qwenSettings: { ...settings.qwenSettings!, go_fast: !settings.qwenSettings!.go_fast } })}
+                                                className={`relative w-8 h-4 rounded-full transition ${settings.qwenSettings.go_fast ? 'bg-cyan-500' : 'bg-[var(--bg-hover)]'}`}
+                                            >
+                                                <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${settings.qwenSettings.go_fast ? 'translate-x-4' : 'translate-x-0'}`} />
+                                            </button>
+                                        </div>
+                                        <div className="flex items-center justify-between p-2 bg-[var(--bg-card)] rounded-lg border border-[var(--border-color)]">
+                                            <label className="text-[10px] text-[var(--text-secondary)]">Disable Safety</label>
+                                            <button
+                                                onClick={() => setSettings({ ...settings, qwenSettings: { ...settings.qwenSettings!, disable_safety_checker: !settings.qwenSettings!.disable_safety_checker } })}
+                                                className={`relative w-8 h-4 rounded-full transition ${settings.qwenSettings.disable_safety_checker ? 'bg-red-500' : 'bg-[var(--bg-hover)]'}`}
+                                            >
+                                                <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${settings.qwenSettings.disable_safety_checker ? 'translate-x-4' : 'translate-x-0'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div className="flex justify-between text-[10px] text-[var(--text-secondary)] mb-1">
+                                            <span>Negative Prompt</span>
+                                        </div>
+                                        <textarea
+                                            value={settings.qwenSettings.negative_prompt}
+                                            onChange={(e) => setSettings({ ...settings, qwenSettings: { ...settings.qwenSettings!, negative_prompt: e.target.value } })}
+                                            placeholder="Describe what to avoid (e.g., blurry, low quality, distorted)"
+                                            className="w-full bg-[var(--bg-card)] text-[var(--text-primary)] p-2 text-xs rounded-lg border border-[var(--border-color)] resize-none outline-none focus:border-cyan-500 h-14"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <div className="flex justify-between text-[10px] text-[var(--text-secondary)] mb-1">
+                                            <span>Seed (Optional)</span>
+                                        </div>
+                                        <input
+                                            type="number"
+                                            value={settings.qwenSettings.seed || ''}
+                                            onChange={(e) => setSettings({ ...settings, qwenSettings: { ...settings.qwenSettings!, seed: e.target.value ? parseInt(e.target.value) : undefined } })}
+                                            placeholder="Leave empty for random"
+                                            className="w-full bg-[var(--bg-card)] text-[var(--text-primary)] p-2 text-xs rounded-lg border border-[var(--border-color)] outline-none focus:border-cyan-500"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
                             <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-2">Format</label>
                             <div className="grid grid-cols-2 gap-4">
                                 <div><span className="text-xs text-[var(--text-secondary)] mb-1 block">Aspect Ratio</span><select value={settings.aspectRatio} onChange={(e) => setSettings({ ...settings, aspectRatio: e.target.value as AspectRatio })} className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] p-2.5 rounded-lg border border-[var(--border-color)] outline-none focus:border-green-500 text-sm"><option value="Auto">Auto</option><option value="1:1">1:1 (Square)</option><option value="16:9">16:9 (Landscape)</option><option value="9:16">9:16 (Portrait)</option><option value="4:3">4:3 (Standard)</option><option value="3:4">3:4 (Portrait)</option><option value="21:9">21:9 (Ultrawide)</option><option value="3:2">3:2 (Classic 35mm)</option><option value="2:3">2:3 (Portrait 35mm)</option><option value="5:4">5:4 (Medium Format)</option><option value="4:5">4:5 (Portrait Medium)</option></select></div>
                                 <div>
                                     <span className="text-xs text-[var(--text-secondary)] mb-1 block">Resolution</span>
-                                    {(settings.model === 'black-forest-labs/flux-2-flex' || settings.model === 'black-forest-labs/flux-2-max') ? (
+                                    {settings.model === 'qwen/qwen-image-2512' ? (
+                                        <div className="text-[10px] text-[var(--text-muted)] italic p-2.5 bg-[var(--bg-input)] rounded-lg border border-[var(--border-color)]">
+                                            Auto-determined by Aspect Ratio
+                                        </div>
+                                    ) : (settings.model === 'black-forest-labs/flux-2-flex' || settings.model === 'black-forest-labs/flux-2-max') ? (
                                         <select
                                             value={settings.imageSize}
                                             onChange={(e) => setSettings({ ...settings, imageSize: e.target.value as ImageSize })}
