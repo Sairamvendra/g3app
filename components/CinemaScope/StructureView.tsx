@@ -25,19 +25,23 @@ export const StructureView: React.FC<StructureViewProps> = ({ parsedScript, onPr
                     <div>
                         <h2 className="text-xl font-bold text-white mb-1">Step 2: Review Structure</h2>
                         <p className="text-gray-400 text-sm">
-                            Analyzed <strong>{parsedScript.totalScenes} scenes</strong> with <strong>{parsedScript.scenes.reduce((acc, s) => acc + s.shots.length, 0)} shots</strong>
+                            Analyzed <strong>{parsedScript.totalScenes || parsedScript.scenes?.length || 0} scenes</strong> with <strong>{(parsedScript.scenes || []).reduce((acc, s) => acc + (s.shots?.length || 0), 0)} shots</strong>
                         </p>
                     </div>
                     <button
                         onClick={onProceed}
-                        className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                        disabled={!parsedScript.scenes || parsedScript.scenes.length === 0}
+                        className={`px-6 py-2 rounded-lg font-medium transition-colors ${!parsedScript.scenes || parsedScript.scenes.length === 0
+                                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                                : 'bg-purple-600 hover:bg-purple-500 text-white'
+                            }`}
                     >
                         Generate Storyboards
                     </button>
                 </div>
 
                 <div className="space-y-4">
-                    {parsedScript.scenes.map((scene) => (
+                    {(parsedScript.scenes || []).map((scene) => (
                         <div key={scene.sceneNumber} className="border border-gray-800 rounded-lg overflow-hidden bg-gray-950">
                             <button
                                 onClick={() => toggleScene(scene.sceneNumber)}

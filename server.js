@@ -1322,6 +1322,8 @@ app.post('/api/cinemascope/parse-script', upload.single('scriptFile'), async (re
       if (req.file.mimetype === 'application/pdf') {
         const data = await pdf(req.file.buffer);
         scriptContent = data.text;
+        console.log('📄 PDF Extracted Text Length:', scriptContent.length);
+        console.log('📄 PDF Extracted Text Preview:', scriptContent.substring(0, 200));
       } else if (req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
         const result = await mammoth.extractRawText({ buffer: req.file.buffer });
         scriptContent = result.value;
@@ -1376,18 +1378,20 @@ Output your response as valid JSON following this exact structure:
   ]
 }`;
 
-    // Using Claude 3 Sonnet
+    // Using Llama 3 70B Instruct for better JSON adherence and reasoning
     const output = await replicate.run(
-      "anthropic/claude-3.5-sonnet",
+      "meta/meta-llama-3-70b-instruct",
       {
         input: {
           prompt: `Please analyze the following script and create a detailed storyboard breakdown:\n\n<script>\n${scriptContent}\n</script>\n\nGenerate the JSON structure as specified in your instructions.`,
-          system_prompt: STORYBOARD_SYSTEM_PROMPT,
+          system_prompt: STORYBOARD_SYSTEM_PROMPT + "\n\nIMPORTANT: The script may use a list format like '[1.01] WIDE/AERIAL | 5s'. Interpret '[1.01]' as Scene 1, Shot 1. Extract the visual description, shot type, and timing from these lines.",
           max_tokens: 8192,
-          temperature: 0.3
+          temperature: 0.2
         }
       }
     );
+
+    console.log('🤖 AI Raw Output:', JSON.stringify(output, null, 2));
 
     // Replicate Claude output is array of strings
     const fullResponse = Array.isArray(output) ? output.join('') : String(output);

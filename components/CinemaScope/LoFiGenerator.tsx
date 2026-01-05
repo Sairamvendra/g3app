@@ -25,7 +25,7 @@ export const LoFiGenerator: React.FC<LoFiGeneratorProps> = ({ parsedScript, onPa
         const newSpecs: PageSpec[] = [];
         let globalPageCount = 1;
 
-        parsedScript.scenes.forEach(scene => {
+        (parsedScript.scenes || []).forEach(scene => {
             const shots = scene.shots;
             // Split into chunks of 6
             for (let i = 0; i < shots.length; i += 6) {
