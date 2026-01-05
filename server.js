@@ -85,7 +85,7 @@ app.get('/api/key/replicate', (req, res) => {
 // Text generation endpoint
 app.post('/api/generate/text', async (req, res) => {
   try {
-    const { prompt, image, max_tokens = 2048, temperature = 0.7, model = 'google/gemini-3-pro' } = req.body;
+    const { prompt, image, images, max_tokens = 2048, temperature = 0.7, model = 'google/gemini-3-pro' } = req.body;
 
     const input = {
       prompt,
@@ -93,8 +93,10 @@ app.post('/api/generate/text', async (req, res) => {
       temperature,
     };
 
-    if (image) {
-      input.image = image;
+    if (images && Array.isArray(images)) {
+      input.images = images;
+    } else if (image) {
+      input.images = [image];
     }
 
     const output = await replicate.run(model, { input });

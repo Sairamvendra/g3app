@@ -360,26 +360,41 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                 referenceImages: injectedReferenceImages,
                 characterReferences: characterRefs
             };
-            const url = await generateImageWithReplicate(finalPrompt, tempSettings, currentAngle);
-            return { url, prompt: panelPrompt, settings: tempSettings, angleUsed: currentAngle } as GeneratedImage;
+            try {
+                const url = await generateImageWithReplicate(finalPrompt, tempSettings, currentAngle);
+                return { url, prompt: panelPrompt, settings: tempSettings, angleUsed: currentAngle } as GeneratedImage;
+            } catch (e: any) {
+                console.error(`Failed to generate panel "${currentAngle}":`, e);
+                throw e;
+            }
         };
 
         try {
             let results: GeneratedImage[] = [];
 
             if (activeSidebar === 'story' && storyFlow.detectedPrompts.length > 0) {
+                // SEQUENTIAL GENERATION TO PREVENT RATE LIMITING
                 const activeAngle = settings.cameraAngles.length > 0 ? settings.cameraAngles.join(' + ') : 'Cinematic Composition';
-                const promises = storyFlow.detectedPrompts.map((panelPrompt, idx) =>
-                    performGeneration(panelPrompt, `Panel ${idx + 1} `, settings)
-                );
-                const outcomes = await Promise.allSettled(promises);
-                results = outcomes
-                    .filter((r): r is PromiseFulfilledResult<GeneratedImage> => r.status === 'fulfilled')
-                    .map(r => r.value);
 
-                const failures = outcomes.filter(r => r.status === 'rejected');
-                if (failures.length > 0) {
-                    setError(`Storyboard partial completion: ${results.length}/${outcomes.length} panels generated.`);
+                for (let idx = 0; idx < storyFlow.detectedPrompts.length; idx++) {
+                    const panelPrompt = storyFlow.detectedPrompts[idx];
+                    try {
+                        const result = await performGeneration(panelPrompt, `Panel ${idx + 1}`, settings);
+                        results.push(result);
+                        // Update state incrementally so user sees progress
+                        setGeneratedImages(prev => [...prev, result]);
+
+                        // Small delay between requests to be safe
+                        if (idx < storyFlow.detectedPrompts.length - 1) {
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+                    } catch (e) {
+                        console.error(`Skipping panel ${idx + 1} due to error`);
+                    }
+                }
+
+                if (results.length < storyFlow.detectedPrompts.length) {
+                    setError(`Storyboard partial completion: ${results.length}/${storyFlow.detectedPrompts.length} panels generated.`);
                 }
             } else {
                 if (!prompt) { setIsGenerating(false); return; }
@@ -406,9 +421,8 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                     const total = outcomes.length;
                     setError(`Generated ${results.length}/${total} images. ${failCount} failed. Check console for details.`);
                 }
+                setGeneratedImages(results);
             }
-
-            setGeneratedImages(results);
 
             // Auto-update video start/end frames
             if (results.length >= 2) {

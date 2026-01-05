@@ -385,7 +385,7 @@ export const refinePromptWithReplicate = async (
       },
       body: JSON.stringify({
         prompt: fullPrompt,
-        image: input.images?.[0],
+        images: input.images,
         max_tokens: 4096,
         temperature: 0.7,
         model: 'google/gemini-3-pro',
@@ -420,29 +420,19 @@ export const analyzeStoryboardFlowWithReplicate = async (
     throw new Error('Replicate API key is required.');
   }
 
-  const replicate = getReplicateClient();
-
   const analysisPrompt = `
 You are an expert storyboard artist and cinematographer.
 1. Analyze the attached storyboard page image.
 2. Identify the number of individual panels (usually 6-8).
-3. For EACH panel, write a highly detailed image generation prompt.
+3. For EACH panel, write a highly detailed image generation prompt based on the visual & compositional details from specific frame from the image and its corresponnding text.
 4. Incorporate the user's specific story guidance: "${userPrompt}".
 5. Adhere to these System Instructions: "${systemInstruction}".
 
 OUTPUT FORMAT:
 You must return strictly a JSON array of strings, where each string is the prompt for one panel.
 Example: ["Panel 1 prompt...", "Panel 2 prompt...", "Panel 3 prompt..."]
+DO NOT return any markdown formatting or code blocks. Just the raw JSON string.
   `;
-
-  const input = {
-    prompt: analysisPrompt,
-    images: [storyboardBase64],
-    system_instruction: systemInstruction,
-    thinking_level: 'high',
-    temperature: 0.5,
-    max_output_tokens: 8192,
-  };
 
   try {
     const response = await fetch('http://localhost:3002/api/generate/text', {
@@ -450,7 +440,7 @@ Example: ["Panel 1 prompt...", "Panel 2 prompt...", "Panel 3 prompt..."]
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: analysisPrompt,
-        image: storyboardBase64,
+        images: [storyboardBase64],
         max_tokens: 8192,
         temperature: 0.5,
         model: 'google/gemini-3-pro',
@@ -469,9 +459,10 @@ Example: ["Panel 1 prompt...", "Panel 2 prompt...", "Panel 3 prompt..."]
     try {
       // Clean up markdown code blocks if present
       let cleanText = text.trim();
-      if (cleanText.startsWith('```')) {
-        cleanText = cleanText.replace(/^```(json)?\n/, '').replace(/\n```$/, '');
-      }
+      // Remove generic markdown code ticks
+      cleanText = cleanText.replace(/```(?:json)?\s*([\s\S]*?)\s*```/gi, '$1');
+      // Remove any leading/trailing whitespace again
+      cleanText = cleanText.trim();
 
       const parsed = JSON.parse(cleanText);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -486,7 +477,10 @@ Example: ["Panel 1 prompt...", "Panel 2 prompt...", "Panel 3 prompt..."]
     } catch (e) {
       console.error('[Storyboard Analysis] JSON Parse Error:', e);
       console.log('[Storyboard Analysis] Failed text content:', text);
-      return text.split('\n').filter((line: string) => line.length > 10);
+      // Fallback: splitting by newlines is risky for prompts but better than nothing
+      // Improved fallback: Try to look for quote-delimited strings? No, simple split is too dangerous with prompt text.
+      // Return error or empty to force retry
+      return [];
     }
   } catch (error: any) {
     console.error('Storyboard analysis error:', error);
@@ -525,7 +519,7 @@ Return ONLY the string.
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: promptText,
-        image: imageBase64,
+        images: [imageBase64],
         max_tokens: 512,
         temperature: 0.3,
         model: 'google/gemini-3-pro',
@@ -602,7 +596,7 @@ Constraint:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: fullPrompt,
-        image: images[0] || null,
+        images: images.length > 0 ? images : undefined,
         max_tokens: 2048,
         temperature: 0.6,
         model: 'google/gemini-3-pro',
