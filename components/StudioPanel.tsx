@@ -10,6 +10,7 @@ import RelightPanel from './RelightPanel';
 import SmartBanners from './SmartBanners';
 import ThumbnailStudio from './ThumbnailStudio';
 import InfluencerContent from './InfluencerContent';
+import { CinemaScopePanel } from './CinemaScope/CinemaScopePanel';
 
 interface StudioPanelProps {
     initialPrompt: string;
@@ -740,6 +741,11 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                     <div className="absolute left-14 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition z-50 whitespace-nowrap ml-2">Influencer Content</div>
                     {activeSidebar === 'influencer' && <div className="absolute left-0 top-2 bottom-2 w-1 bg-orange-500 rounded-r"></div>}
                 </button>
+                <button onClick={() => toggleSidebar('cinemascope')} className={`p-2 rounded-xl transition-all relative group shadow-sm ${activeSidebar === 'cinemascope' ? 'text-purple-400 bg-[var(--bg-input)] ring-1 ring-purple-400/20' : 'text-[var(--text-muted)] hover:text-purple-400 hover:bg-[var(--bg-hover)]'}`} title="CinemaScope">
+                    <div className="w-6 h-6 flex items-center justify-center"><FilmIcon className="w-6 h-6" /></div>
+                    <div className="absolute left-14 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition z-50 whitespace-nowrap ml-2">CinemaScope</div>
+                    {activeSidebar === 'cinemascope' && <div className="absolute left-0 top-2 bottom-2 w-1 bg-purple-400 rounded-r"></div>}
+                </button>
             </div>
 
             {/* Expansible Sidebar Content */}
@@ -1133,8 +1139,13 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ initialPrompt }) => {
                 <InfluencerContent />
             </div>
 
+            {/* CinemaScope Module */}
+            <div className={`flex-1 min-w-0 ${activeSidebar === 'cinemascope' ? 'block' : 'hidden'}`}>
+                <CinemaScopePanel />
+            </div>
+
             {/* Main Visual Studio Module */}
-            <div className={`flex-1 flex flex-col h-full min-w-0 transition-all duration-300 ${['smart-banners', 'thumbnail-studio', 'influencer'].includes(activeSidebar) ? 'hidden' : 'flex'}`}>
+            <div className={`flex-1 flex flex-col h-full min-w-0 transition-all duration-300 ${['smart-banners', 'thumbnail-studio', 'influencer', 'cinemascope'].includes(activeSidebar) ? 'hidden' : 'flex'}`}>
                 <div className="p-2 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-none sticky top-0 z-10">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">

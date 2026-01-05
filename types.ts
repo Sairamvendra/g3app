@@ -124,7 +124,7 @@ export interface Character {
   imageBase64: string;
 }
 
-export type SidebarMode = 'none' | 'story' | 'characters' | 'relight' | 'settings' | 'video' | 'smart-banners' | 'thumbnail-studio' | 'influencer';
+export type SidebarMode = 'none' | 'story' | 'characters' | 'relight' | 'settings' | 'video' | 'smart-banners' | 'thumbnail-studio' | 'influencer' | 'cinemascope';
 
 export const DEFAULT_CAMERA_SETTINGS: CameraSettings = {
   rotation: 0,

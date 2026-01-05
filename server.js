@@ -4,6 +4,14 @@ import Replicate from 'replicate';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import multer from 'multer';
+import mammoth from 'mammoth';
+import sharp from 'sharp';
+import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const pdf = require('pdf-parse');
 
 dotenv.config();
 
@@ -1293,6 +1301,249 @@ app.post('/api/influencer/export-video', async (req, res) => {
       success: false,
       error: error.message || 'Failed to export video'
     });
+  }
+});
+
+
+// ===== CINEMASCOPE MODULE ENDPOINTS =====
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+// 1. Script Parsing Endpoint
+app.post('/api/cinemascope/parse-script', upload.single('scriptFile'), async (req, res) => {
+  try {
+    let scriptContent = req.body.scriptContent;
+
+    // Handle file upload if present
+    if (req.file) {
+      if (req.file.mimetype === 'application/pdf') {
+        const data = await pdf(req.file.buffer);
+        scriptContent = data.text;
+      } else if (req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        const result = await mammoth.extractRawText({ buffer: req.file.buffer });
+        scriptContent = result.value;
+      } else {
+        // Assume text file
+        scriptContent = req.file.buffer.toString('utf-8');
+      }
+    }
+
+    if (!scriptContent) {
+      return res.status(400).json({ error: 'Script content is required' });
+    }
+
+    const STORYBOARD_SYSTEM_PROMPT = `You are a professional storyboard artist and cinematographer. Your task is to analyze the provided script and break it down into structured storyboard frames.
+
+For each scene in the script:
+1. Identify the scene number and location/setting
+2. Break down the scene into individual shots/frames/panels
+3. For each shot, provide:
+   - Shot number (sequential within scene)
+   - Shot type (WIDE, MEDIUM, CLOSE-UP, EXTREME CLOSE-UP, POV, OVER-THE-SHOULDER, etc.)
+   - Camera movement (STATIC, PAN, TILT, DOLLY, CRANE, HANDHELD, etc.)
+   - Frame composition description (what's in frame, positioning)
+   - Lighting description (mood, direction, quality)
+   - Character actions and expressions
+   - Key dialogue or sound cues (if any)
+   - Visual style notes
+   - Frame Prompt: A standalone, highly detailed image generation prompt for this specific frame.
+
+Output your response as valid JSON following this exact structure:
+{
+  "title": "Script Title",
+  "scenes": [
+    {
+      "sceneNumber": 1,
+      "location": "INT/EXT - LOCATION - TIME",
+      "sceneDescription": "Brief overall scene description",
+      "shots": [
+        {
+          "shotNumber": 1,
+          "shotType": "WIDE",
+          "cameraMovement": "STATIC",
+          "composition": "Detailed description",
+          "lighting": "Lighting description",
+          "action": "Character actions",
+          "dialogue": "Key dialogue",
+          "styleNotes": "Style notes",
+          "framePrompt": "Detailed image generation prompt"
+        }
+      ]
+    }
+  ]
+}`;
+
+    // Using Claude 3 Sonnet
+    const output = await replicate.run(
+      "anthropic/claude-3.5-sonnet",
+      {
+        input: {
+          prompt: `Please analyze the following script and create a detailed storyboard breakdown:\n\n<script>\n${scriptContent}\n</script>\n\nGenerate the JSON structure as specified in your instructions.`,
+          system_prompt: STORYBOARD_SYSTEM_PROMPT,
+          max_tokens: 8192,
+          temperature: 0.3
+        }
+      }
+    );
+
+    // Replicate Claude output is array of strings
+    const fullResponse = Array.isArray(output) ? output.join('') : String(output);
+
+    // Extract JSON
+    let jsonStr = fullResponse;
+    const jsonMatch = fullResponse.match(/```json\n?([\s\S]*?)\n?```/) || fullResponse.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1] || jsonMatch[0];
+    }
+
+    const parsedData = JSON.parse(jsonStr);
+    res.json(parsedData);
+
+  } catch (error) {
+    logger.error('/api/cinemascope/parse-script', error);
+    res.status(500).json({ error: 'Failed to parse script', details: error.message });
+  }
+});
+
+// 2. Lo-Fi Page Generation Endpoint
+app.post('/api/cinemascope/generate-lofi-page', async (req, res) => {
+  try {
+    const { prompt } = req.body;
+
+    // Fallback if specific PRD model isn't available publically yet
+    const model = "black-forest-labs/flux-schnell";
+
+    const output = await replicate.run(model, {
+      input: {
+        prompt: prompt,
+        aspect_ratio: "9:16",
+        output_format: "png",
+        safety_filter_level: "block_only_high"
+      }
+    });
+
+    let imageUrl = Array.isArray(output) ? output[0] : output;
+
+    // Handle Web Stream output from Replicate SDK
+    if (typeof imageUrl === 'object' && imageUrl !== null && !imageUrl.substring) {
+      try {
+        const response = new Response(imageUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const base64 = buffer.toString('base64');
+        imageUrl = `data:image/png;base64,${base64}`;
+      } catch (e) {
+        logger.error('Failed to convert stream:', e);
+      }
+    }
+
+    res.json({ imageUrl });
+
+  } catch (error) {
+    logger.error('/api/cinemascope/generate-lofi-page', error);
+    res.status(500).json({ error: 'Failed to generate page', details: error.message });
+  }
+});
+
+// 3. Crop Frames Endpoint
+app.post('/api/cinemascope/crop-frames', async (req, res) => {
+  try {
+    const { imageUrl, gridCols = 2, gridRows = 3 } = req.body;
+
+    // Fetch image
+    const response = await fetch(imageUrl);
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Get metadata from a temporary sharp instance
+    const metadata = await sharp(buffer).metadata();
+
+    const width = metadata.width;
+    const height = metadata.height;
+
+    const colWidth = Math.floor(width / gridCols);
+    const rowHeight = Math.floor(height / gridRows);
+
+    const croppedFrames = [];
+
+    for (let row = 0; row < gridRows; row++) {
+      for (let col = 0; col < gridCols; col++) {
+        const left = col * colWidth;
+        const top = row * rowHeight;
+
+        // Extract
+        const extractBuffer = await sharp(buffer)
+          .extract({ left, top, width: colWidth, height: rowHeight })
+          .toBuffer();
+
+        const base64 = extractBuffer.toString('base64');
+        const mimeType = 'image/png';
+        const dataUri = `data:${mimeType};base64,${base64}`;
+
+        croppedFrames.push({
+          frameIndex: row * gridCols + col,
+          base64: dataUri
+        });
+      }
+    }
+
+    res.json({ frames: croppedFrames });
+
+  } catch (error) {
+    logger.error('/api/cinemascope/crop-frames', error);
+    res.status(500).json({ error: 'Failed to crop frames', details: error.message });
+  }
+});
+
+// 4. Hi-Fi Frame Generation Endpoint
+app.post('/api/cinemascope/generate-hifi-frame', async (req, res) => {
+  try {
+    const { prompt, image } = req.body;
+
+    // Using Flux-Dev for higher quality
+    const model = "black-forest-labs/flux-dev";
+
+    // Note: Standard public Flux-dev on Replicate doesn't officially support img2img in the simplest schema?
+    // Actually it does NOT have an 'image' input in the default schema.
+    // If we want img2img + flux style, we might need a specific Cog.
+    // However, for now, let's use txt2img with the detailed prompt generated from consistency context.
+    // Or we could use `stability-ai/sdxl` which definitely supports img2img.
+    // Given PRD asks for High Fidelity, Flux-Dev txt2img with a VERY GOOD prompt is often better than SDXL img2img 
+    // unless the sketch is very specific. 
+    // Let's stick to Txt2Img with very detailed prompts for now as it is safer with Flux.
+
+    const input = {
+      prompt,
+      aspect_ratio: "16:9",
+      output_format: "png",
+      guidance_scale: 3.5,
+      num_inference_steps: 28
+    };
+
+    const output = await replicate.run(model, { input });
+    let imageUrl = Array.isArray(output) ? output[0] : output;
+
+    // Handle Web Stream output from Replicate SDK
+    if (typeof imageUrl === 'object' && imageUrl !== null && !imageUrl.substring) {
+      try {
+        const response = new Response(imageUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const base64 = buffer.toString('base64');
+        imageUrl = `data:image/png;base64,${base64}`;
+      } catch (e) {
+        logger.error('Failed to convert HiFi stream:', e);
+      }
+    }
+
+    res.json({ imageUrl });
+
+  } catch (error) {
+    logger.error('/api/cinemascope/generate-hifi-frame', error);
+    res.status(500).json({ error: 'Failed to generate hi-fi frame', details: error.message });
   }
 });
 
